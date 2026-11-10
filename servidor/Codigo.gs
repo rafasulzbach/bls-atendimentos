@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.7';
+const VERSAO_API = '1.8';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -573,26 +573,39 @@ function gemini(parts, sistema) {
   const p = props();
   const key = p.getProperty('GEMINI_KEY');
   if (!key) throw new Error('A chave da IA ainda não foi configurada (Ajustes → IA dos manuais).');
-  const modelo = p.getProperty('GEMINI_MODELO') || MODELO_PADRAO;
+  const principal = p.getProperty('GEMINI_MODELO') || MODELO_PADRAO;
+  // se o modelo escolhido estiver sobrecarregado, tenta outros modelos gratuitos
+  const modelos = [principal].concat(['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']
+    .filter(function (m) { return m !== principal; }));
   const body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json' } };
   if (sistema) body.systemInstruction = { parts: [{ text: sistema }] };
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent';
-  // 1ª tentativa: chave no cabeçalho; se o Google recusar a chave, tenta de novo com a chave na URL (formato aceito pelas chaves novas "AQ.")
-  let r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true });
-  let detalhe2 = '';
-  if (r.getResponseCode() === 400 || r.getResponseCode() === 401 || r.getResponseCode() === 403) {
-    const r2 = UrlFetchApp.fetch(url + '?key=' + encodeURIComponent(key), { method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true });
-    if (r2.getResponseCode() === 200 || r2.getResponseCode() === 429) r = r2;
-    else detalhe2 = ' | 2ª tentativa (' + r2.getResponseCode() + '): ' + motivoErro(r2.getContentText());
+  const payload = JSON.stringify(body);
+  let ultimo = '';
+  for (let mi = 0; mi < modelos.length; mi++) {
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelos[mi]) + ':generateContent';
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      let r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: payload, muteHttpExceptions: true });
+      if (r.getResponseCode() === 400 || r.getResponseCode() === 401 || r.getResponseCode() === 403) {
+        const r2 = UrlFetchApp.fetch(url + '?key=' + encodeURIComponent(key), { method: 'post', contentType: 'application/json', payload: payload, muteHttpExceptions: true });
+        if (r2.getResponseCode() !== 400 && r2.getResponseCode() !== 401 && r2.getResponseCode() !== 403) r = r2;
+      }
+      const code = r.getResponseCode(), txt = r.getContentText();
+      if (code === 200) {
+        const j = JSON.parse(txt);
+        const c = j.candidates && j.candidates[0];
+        const out = c && c.content && c.content.parts ? c.content.parts.map(function (x) { return x.text || ''; }).join('') : '';
+        if (!out) throw new Error('A IA não retornou resposta. Tente reformular a pergunta.');
+        try { return JSON.parse(out); } catch (e) { const m = out.match(/\{[\s\S]*\}/); if (m) return JSON.parse(m[0]); throw new Error('Resposta inválida da IA'); }
+      }
+      ultimo = 'Erro da IA (' + code + ', ' + modelos[mi] + '): ' + motivoErro(txt);
+      if (code === 400 || code === 401 || code === 403) throw new Error(ultimo);            // chave ou pedido inválido: não adianta repetir
+      if (code === 404) break;                                                               // modelo não existe: tenta o próximo
+      if (code === 429 && mi === modelos.length - 1) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.');
+      if (code === 429) break;                                                               // limite deste modelo: tenta o próximo
+      Utilities.sleep(1500 * (tentativa + 1));                                               // 500/503: sobrecarga passageira
+    }
   }
-  const code = r.getResponseCode(), txt = r.getContentText();
-  if (code === 429) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.');
-  if (code !== 200) throw new Error('Erro da IA (' + code + '): ' + motivoErro(txt) + detalhe2);
-  const j = JSON.parse(txt);
-  const c = j.candidates && j.candidates[0];
-  const out = c && c.content && c.content.parts ? c.content.parts.map(function (x) { return x.text || ''; }).join('') : '';
-  if (!out) throw new Error('A IA não retornou resposta. Tente reformular a pergunta.');
-  try { return JSON.parse(out); } catch (e) { const m = out.match(/\{[\s\S]*\}/); if (m) return JSON.parse(m[0]); throw new Error('Resposta inválida da IA'); }
+  throw new Error('A IA do Google está sobrecarregada agora. Tente de novo em 1 ou 2 minutos. (' + ultimo + ')');
 }
 
 const ACOES_MANUAIS = {
