@@ -257,8 +257,8 @@ textarea.inp{min-height:110px;resize:vertical}
   .pt-in td{border:0;border-right:1px solid #000;width:50%;line-height:1.7}
   .pt-in td:last-child{border-right:0}
   .pt-in tr:first-child td{border-bottom:1px solid #000}
-  .pt-ass td{text-align:center;padding-top:34px!important;font-size:9.5pt}
-  .pt-ass div{border-top:1px solid #000;width:75%;margin:0 auto 3px}
+  .pt-ass td{text-align:center;padding-top:80px!important;padding-bottom:8px!important;font-size:9.5pt}
+  .pt-ass div{border-top:1px solid #000;width:85%;margin:0 auto 4px}
   .pt-graf{margin:14px 0 8px}
   .pt-gt{font-size:10pt;margin-left:6px}
   .pt-temps{text-align:center;font-size:10pt;margin-top:4px}
@@ -385,7 +385,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.6.2';
+const APP_VERSAO = '1.6.3';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -814,6 +814,8 @@ const TEMPS = [['t0','Início (opcional)', 0], ['t1','Temp. em 1h', 1], ['t2','T
 const filtrosT = { busca:'' };
 const hojeISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const fmtDataISO = s => s ? s.split('-').reverse().join('/') : '—';
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const dataExtenso = s => { if (!s) return ''; const [a, m, d] = s.split('-').map(Number); return `${d} de ${MESES[m - 1]} de ${a}`; };
 const numT = v => { const x = parseFloat(String(v ?? '').replace(',', '.')); return isNaN(x) ? null : x; };
 const fmtT = v => numT(v) === null ? '—' : String(numT(v)).replace('.', ',') + ' °C';
 const validadeDe = t => t.data ? new Date(new Date(t.data + 'T12:00:00').getTime() + 180 * 864e5) : null;
@@ -832,7 +834,7 @@ function checkTeste(t) {
 function txtValidade(t) {
   const v = validadeDe(t); if (!v) return '';
   const venc = v < new Date();
-  return `<b style="color:${venc ? 'var(--red)' : 'var(--ink)'}">Válido até ${v.toLocaleDateString('pt-BR')}${venc ? ' — VENCIDO' : ''}</b>`;
+  return `<b style="color:${venc ? 'var(--red)' : 'var(--ink)'}">Válido até ${v.toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' })}${venc ? ' — VENCIDO' : ''}</b>`;
 }
 function grafico(t, { w = 360, h = 300, cor = '#1f45b5', fs = 11 } = {}) {
   const L = 44, R = 30, T = 30, B = 28, W = w - L - R, H = h - T - B, ymin = -30, ymax = 35;
@@ -1008,7 +1010,7 @@ async function vTesteDet() {
       <div class="det-head"><div><span class="lbl">Placa</span><h2>${esc(t.placa)}</h2></div><span class="pill s-ok">Concluído</span></div>
       <div style="margin-top:8px">${txtValidade(t)}</div>
       <div class="kv">
-        ${kv('Ordem de serviço', esc(t.os))}${kv('Avaliador', esc(t.avaliador))}${kv('Local e data', esc([t.local, fmtDataISO(t.data)].filter(Boolean).join(' · ')))}
+        ${kv('Ordem de serviço', esc(t.os))}${kv('Avaliador', esc(t.avaliador))}${kv('Local e data', esc([t.local, dataExtenso(t.data)].filter(Boolean).join(', ')))}
         ${kv('Marca e ano do veículo', esc(t.veiculo))}${kv('Marca e modelo do equipamento', esc(t.equipamento))}${kv('Nº de série do equipamento', esc(t.serie))}
       </div>
     </div>
@@ -1034,7 +1036,7 @@ async function imprimirTeste() {
     <table class="pt">
       <tr><td class="pt-logo"><img src="${CAB_IMPRESSAO}" alt=""></td><td class="pt-tit" colspan="2">TESTE DE EQUIPAMENTO DE REFRIGERAÇÃO</td></tr>
       <tr><td colspan="3">Avaliador: <b>${esc(t.avaliador)}</b>${t.os ? `<span style="float:right">OS: <b>${esc(t.os)}</b></span>` : ''}</td></tr>
-      <tr><td colspan="3">Local e data: <b>${esc([t.local, fmtDataISO(t.data)].filter(Boolean).join(', '))}</b></td></tr>
+      <tr><td colspan="3">Local e data: <b>${esc([t.local, dataExtenso(t.data)].filter(Boolean).join(', '))}</b></td></tr>
       <tr><td>Placa: <b>${esc(t.placa)}</b></td><td>Marca e ano do veículo: <b>${esc(t.veiculo)}</b></td><td>Marca e modelo do equipamento: <b>${esc(t.equipamento)}</b></td></tr>
       <tr><td colspan="3" style="padding:0"><table class="pt-in"><tr>
         <td><b>Motor:</b><br>Estacionário: ${br('motor', 'estacionario')}<br>Elétrico: ${br('motor', 'eletrico')}<br>Horímetro: ${br('motor', 'horimetro')}<br>Providências: ${esc(t.motor.prov)}</td>
@@ -1044,7 +1046,7 @@ async function imprimirTeste() {
     </table>
     <div class="pt-graf"><div class="pt-gt">Temperatura</div>${grafico(t, { w:620, h:340, cor:'#142269', fs:12 })}
 </div>
-    <div class="pt-val"><b>VALIDADE DO TESTE (180 DIAS):</b> ${VALIDADE_TXT}${v ? `<br><b>Válido até: ${v.toLocaleDateString('pt-BR')}</b>` : ''}</div>`;
+    <div class="pt-val"><b>VALIDADE DO TESTE (180 DIAS):</b> ${VALIDADE_TXT}${v ? `<br><b>Válido até: ${v.toLocaleDateString('pt-BR', { day:'numeric', month:'long', year:'numeric' })}</b>` : ''}</div>`;
   const tit = document.title;
   document.title = `Teste de frio ${t.placa} ${fmtDataISO(t.data).replace(/\//g, '-')}`;
   await new Promise(r => setTimeout(r, 300));
