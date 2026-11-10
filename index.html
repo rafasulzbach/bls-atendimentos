@@ -277,7 +277,7 @@ textarea.inp{min-height:110px;resize:vertical}
       <button data-nav="atendimentos"><span class="ico">☰</span><span>Atendimentos</span><span class="badge" id="bAt">0</span></button>
       <button data-nav="cobranca"><span class="ico">$</span><span>Cobrança</span><span class="badge" id="bCob">0</span></button>
       <button data-nav="teste"><span class="ico">❄</span><span>Teste de Frio</span></button>
-      <button data-nav="config"><span class="ico">⚙</span><span>Ajustes</span></button>
+      <button data-nav="config"><span class="ico">⚙</span><span>Ajustes</span><span class="badge hidden" id="bCfg">0</span></button>
     </nav>
     <div class="side-foot">Versão <span id="versao"></span></div>
   </aside>
@@ -308,7 +308,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.3.0';
+const APP_VERSAO = '1.3.1';
 /* =========================================================
    Utilidades
    ========================================================= */
@@ -1191,7 +1191,7 @@ async function vConfig() {
       <div class="btnrow"><button class="btn sec" data-cfg="copiar">📋 Copiar link</button></div></div>` : ''}
     ${Sync.cfg() ? `<div class="card cfg" style="max-width:660px;margin-top:14px">
       <h3 style="margin-top:0">Usuários</h3>
-      <p style="color:var(--muted);margin-top:0">Cada técnico cria a própria senha no primeiro acesso. Aqui você bloqueia ou redefine a senha (a pessoa cria uma nova no próximo login).</p>
+      <p style="color:var(--muted);margin-top:0">Quando um técnico entra pela primeira vez com a conta Google, ele aparece aqui como <b>Pendente</b>. Libere só quem for da equipe.</p>
       <div class="ulist" id="usuList"><span style="color:var(--muted)">Carregando...</span></div></div>` : ''}
     <div class="card" style="max-width:660px;margin-top:14px;color:var(--muted);font-size:14px">Versão do app: <b>${APP_VERSAO}</b></div>`;
   if (Sync.cfg()) carregarUsuarios();
@@ -1201,20 +1201,24 @@ async function carregarUsuarios() {
   try {
     const { usuarios } = await Sync.api('usuarios');
     if (!$('#usuList')) return;
+    const ordem = { Pendente:0, Liberado:1, Bloqueado:2 };
+    usuarios.sort((a, b) => (ordem[a.situacao] ?? 3) - (ordem[b.situacao] ?? 3));
+    const cor = { Pendente:'var(--pend)', Liberado:'var(--ok)', Bloqueado:'var(--red)' };
     el.innerHTML = usuarios.length ? usuarios.map(u => `<div class="urow">
-      <div class="un"><b>${esc(u.nome)}</b> <span style="color:var(--muted)">(${esc(u.usuario)})</span>
-        <small>${u.ativo ? '' : '<b style="color:var(--red)">Bloqueado</b> · '}Último acesso: ${u.ultimoAcesso ? fmtCurto(u.ultimoAcesso) : '—'}</small></div>
-      <button class="btn ghost" data-usu="${esc(u.usuario)}" data-op="resetar">Redefinir senha</button>
-      <button class="btn ${u.ativo ? 'danger' : 'sec'}" data-usu="${esc(u.usuario)}" data-op="${u.ativo ? 'bloquear' : 'desbloquear'}">${u.ativo ? 'Bloquear' : 'Desbloquear'}</button>
+      <div class="un"><b>${esc(u.nome)}</b> <span style="color:${cor[u.situacao] || 'var(--muted)'};font-size:12.5px;font-weight:600">● ${esc(u.situacao)}</span>
+        <small>${esc(u.email)} · último acesso: ${u.ultimoAcesso ? fmtCurto(u.ultimoAcesso) : '—'}</small></div>
+      ${u.situacao !== 'Liberado' ? `<button class="btn" data-usu="${esc(u.email)}" data-op="liberar">Liberar</button>` : ''}
+      ${u.situacao === 'Liberado' ? `<button class="btn danger" data-usu="${esc(u.email)}" data-op="bloquear">Bloquear</button>` : ''}
+      ${u.situacao !== 'Liberado' ? `<button class="btn ghost" data-usu="${esc(u.email)}" data-op="excluir">Remover</button>` : ''}
     </div>`).join('') : '<span style="color:var(--muted)">Nenhum técnico cadastrado ainda.</span>';
   } catch (e) { el.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
 }
 async function usuarioAcao(usuario, op) {
-  const txt = { resetar:['Redefinir senha?', `<b>${esc(usuario)}</b> vai criar uma senha nova no próximo login.`, 'Redefinir'],
+  const txt = { liberar:['Liberar acesso?', `<b>${esc(usuario)}</b> poderá entrar no app e registrar atendimentos.`, 'Liberar'],
                 bloquear:['Bloquear usuário?', `<b>${esc(usuario)}</b> não conseguirá mais entrar nem enviar atendimentos.`, 'Bloquear'],
-                desbloquear:['Desbloquear usuário?', `<b>${esc(usuario)}</b> poderá entrar novamente.`, 'Desbloquear'] }[op];
-  if (!await confirmar(txt[0], txt[1], txt[2], op === 'bloquear' ? 'danger' : '')) return;
-  try { await Sync.api('usuarioAcao', { usuario, op }); toast('Feito ✓'); carregarUsuarios(); } catch (e) { toast(e.message); }
+                excluir:['Remover usuário?', `<b>${esc(usuario)}</b> sai da lista. Se entrar de novo, volta como pendente.`, 'Remover'] }[op];
+  if (!await confirmar(txt[0], txt[1], txt[2], op === 'liberar' ? '' : 'danger')) return;
+  try { await Sync.api('usuarioAcao', { email:usuario, op }); toast('Feito ✓'); carregarUsuarios(); verificarPendentes(); } catch (e) { toast(e.message); }
 }
 async function cfgAcao(acao) {
   if (acao === 'salvar') {
@@ -1288,52 +1292,17 @@ function mostrarGate(modo, aviso = '') {
     };
   } else if (modo === 'login') {
     b.innerHTML = `<h2>Entrar</h2>
-      <p>Primeiro acesso? Digite o usuário que quer usar e crie sua senha.</p>
-      <label>Usuário</label><input class="inp" id="gUsu" autocomplete="username" autocapitalize="none" value="${esc(lsGet('ultimoUsuario') || '')}">
-      <label>Senha</label><input class="inp" id="gSenha" type="password" autocomplete="current-password">
+      <p>Entre com a sua conta Google. No primeiro acesso, o administrador precisa liberar a sua entrada.</p>
       <div class="gate-msg" id="gMsg">${esc(aviso)}</div>
-      <button class="btn" id="gEntrar">Entrar</button>
-      <div class="gate-sep">Administrador</div>
       <div id="gGoogle"><small style="color:var(--muted)">Carregando...</small></div>`;
-    const entrar = () => fazerLogin($('#gEntrar'));
-    $('#gEntrar').onclick = entrar;
-    $('#gSenha').onkeydown = e => { if (e.key === 'Enter') entrar(); };
-    $('#gUsu').onkeydown = e => { if (e.key === 'Enter') $('#gSenha').focus(); };
     prepararGoogle();
+  } else if (modo === 'pendente') {
+    b.innerHTML = `<h2>Aguardando liberação</h2>
+      <p>${aviso}</p>
+      <p>Avise o administrador. Depois que ele liberar, toque em <b>Tentar de novo</b>.</p>
+      <button class="btn" id="gDeNovo">Tentar de novo</button>`;
+    $('#gDeNovo').onclick = () => mostrarGate('login');
   }
-}
-async function fazerLogin(btn) {
-  const usuario = $('#gUsu').value.trim().toLowerCase(), senha = $('#gSenha').value;
-  if (!usuario || !senha) { gateMsg('Informe usuário e senha.'); return; }
-  gateMsg(''); gateCarregando(btn, true);
-  try {
-    const r = await Sync.api('login', { usuario, senha });
-    if (r.novo) return mostrarCriar(usuario, senha, r.reset);
-    entrouCom(r.sessao);
-  } catch (e) { gateMsg(e.message); }
-  finally { gateCarregando(btn, false); }
-}
-function mostrarCriar(usuario, senha, reset) {
-  $('#gateBody').innerHTML = `<h2>${reset ? 'Criar nova senha' : 'Primeiro acesso'}</h2>
-    <p>${reset ? 'Sua senha foi redefinida pelo administrador.' : 'O usuário'} <b>${esc(usuario)}</b> ${reset ? '— crie uma senha nova.' : 'ainda não existe. Confirme seus dados para criar o acesso.'}</p>
-    <label>Seu nome <small style="font-weight:400;color:var(--muted)">(aparece nos atendimentos)</small></label><input class="inp" id="gNome" autocomplete="name">
-    <label>Senha</label><input class="inp" id="gS1" type="password" autocomplete="new-password" value="${esc(senha)}">
-    <label>Confirme a senha</label><input class="inp" id="gS2" type="password" autocomplete="new-password">
-    <div class="gate-msg" id="gMsg"></div>
-    <button class="btn" id="gCriar">Criar e entrar</button>
-    <button class="btn ghost" id="gVoltar" style="margin-top:8px">Voltar</button>`;
-  $('#gNome').focus();
-  $('#gVoltar').onclick = () => mostrarGate('login');
-  $('#gCriar').onclick = async e => {
-    const nome = $('#gNome').value.trim(), s1 = $('#gS1').value, s2 = $('#gS2').value;
-    if (!nome) { gateMsg('Informe seu nome.'); return; }
-    if (s1.length < 4) { gateMsg('A senha precisa ter pelo menos 4 caracteres.'); return; }
-    if (s1 !== s2) { gateMsg('As senhas não conferem.'); return; }
-    gateCarregando(e.target, true);
-    try { const r = await Sync.api('cadastrar', { usuario, nome, senha:s1 }); entrouCom(r.sessao); }
-    catch (err) { gateMsg(err.message); }
-    finally { gateCarregando(e.target, false); }
-  };
 }
 function carregarScript(src) {
   return new Promise((res, rej) => {
@@ -1351,21 +1320,32 @@ async function prepararGoogle() {
     await carregarScript('https://accounts.google.com/gsi/client');
     google.accounts.id.initialize({ client_id:cid, callback: async r => {
       gateMsg('Verificando...');
-      try { const x = await Sync.api('loginGoogle', { credencial:r.credential }); entrouCom(x.sessao); }
+      try {
+        const x = await Sync.api('loginGoogle', { credencial:r.credential });
+        if (x.pendente) mostrarGate('pendente', `Olá, <b>${esc(x.nome)}</b>! Seu acesso (${esc(x.email)}) foi solicitado e está aguardando a liberação do administrador.`);
+        else entrouCom(x.sessao);
+      }
       catch (e) { gateMsg(e.message); }
     } });
     el.innerHTML = '';
-    google.accounts.id.renderButton(el, { theme:'outline', size:'large', text:'signin_with', locale:'pt-BR', shape:'pill', width:300 });
+    google.accounts.id.renderButton(el, { theme:'filled_blue', size:'large', text:'signin_with', locale:'pt-BR', shape:'pill', width:300 });
   } catch (e) { el.innerHTML = '<small style="color:var(--muted)">Sem conexão com o Google.</small>'; }
 }
 function entrouCom(sessao) {
   Sessao.set(sessao);
-  if (!sessao.admin) lsSet('ultimoUsuario', sessao.usuario);
   $('#gate').classList.add('hidden');
   aplicarPerfil();
   toast('Olá, ' + sessao.nome + '!');
   go('inicio');
   Sync.rodar();
+  verificarPendentes();
+}
+async function verificarPendentes() {
+  const b = $('#bCfg'); if (!Sessao.admin()) { b.classList.add('hidden'); return; }
+  try {
+    const n = (await Sync.api('usuarios')).usuarios.filter(u => u.situacao === 'Pendente').length;
+    b.textContent = n; b.title = n + ' aguardando liberação'; b.classList.toggle('hidden', !n);
+  } catch (e) {}
 }
 function aplicarPerfil() {
   const s = Sessao.get();
@@ -1376,7 +1356,7 @@ function aplicarPerfil() {
 }
 $('#userBtn').onclick = async () => {
   const s = Sessao.get(); if (!s) return;
-  const r = await modal({ titulo: esc(s.nome), corpo: `${s.admin ? 'Administrador · ' : 'Usuário: '}${esc(s.usuario)}`,
+  const r = await modal({ titulo: esc(s.nome), corpo: `${s.admin ? 'Administrador · ' : ''}${esc(s.usuario)}`,
     botoes: [{ label:'Fechar', cls:'ghost', valor:false }, { label:'Sair', cls:'danger', valor:true }] });
   if (!r) return;
   await flush(); Sessao.sair(); aplicarPerfil(); mostrarGate('login');
@@ -1440,7 +1420,9 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sav
     await render();
     await configPorLink();
     Sync.rodar();
+    if (Sessao.admin()) verificarPendentes();
     setInterval(() => { if (!document.hidden) Sync.rodar(); }, 60 * 1000);
+    setInterval(() => { if (!document.hidden) verificarPendentes(); }, 5 * 60 * 1000);
     window.addEventListener('online', () => Sync.rodar());
     window.addEventListener('offline', () => Sync.rodar());
     document.addEventListener('visibilitychange', () => { if (!document.hidden) Sync.rodar(); });

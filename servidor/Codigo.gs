@@ -13,12 +13,12 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = 'COLE_AQUI_O_ID_DO_CLIENTE.apps.googleusercontent.com';
-const VERSAO_API = '1.1';
+const VERSAO_API = '1.2';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
              'Criado por', 'Alterado por', 'Servidor', 'JSON'];
-const CAB_USU = ['Usuário', 'Nome', 'Ativo', 'Criado em', 'Último acesso', 'Hash', 'Salt'];
+const CAB_USU = ['E-mail', 'Nome', 'Situação', 'Criado em', 'Último acesso'];
 const STATUS = { pendente: 'Pendente', em_espera: 'Em espera', enviado: 'Enviado', concluido: 'Concluído' };
 const DIAS = 24 * 60 * 60 * 1000;
 
@@ -62,7 +62,6 @@ function configurar() {
     su.getRange(1, 1, 1, CAB_USU.length).setValues([CAB_USU])
       .setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
     su.setFrozenRows(1);
-    su.hideColumns(6, 2);
   }
   pastaAtendimentos();
   if (!p.getProperty('CHAVE')) p.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, '').slice(0, 16).toUpperCase());
@@ -101,7 +100,7 @@ function doGet() {
   return ContentService.createTextOutput('BLS Atendimentos API ' + VERSAO_API + ' — funcionando.');
 }
 
-const PUBLICAS = { ping: 1, login: 1, cadastrar: 1, loginGoogle: 1 };
+const PUBLICAS = { ping: 1, loginGoogle: 1 };
 const SO_ADMIN = { usuarios: 1, usuarioAcao: 1 };
 
 function doPost(e) {
@@ -141,7 +140,7 @@ function validarToken(tok) {
   if (p.exp < Date.now()) throw new Error('SESSAO: Sessão expirada, faça login novamente');
   if (!p.adm) {
     const u = acharUsuario(p.u);
-    if (!u || u.ativo !== 'Sim') throw new Error('SESSAO: Usuário bloqueado');
+    if (!u || u.situacao !== 'Liberado') throw new Error('SESSAO: Acesso não liberado');
   }
   return p;
 }
@@ -149,16 +148,13 @@ function sessaoDe(usuario, nome, adm) {
   const exp = Date.now() + (adm ? 30 : 365) * DIAS;
   return { token: assinar({ u: usuario, n: nome, adm: !!adm, exp: exp }), usuario: usuario, nome: nome, admin: !!adm, exp: exp };
 }
-function hashSenha(senha, salt) {
-  return b64u(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + '|' + senha, Utilities.Charset.UTF_8));
-}
 function chaveUsuario(u) { return String(u || '').trim().toLowerCase(); }
 function acharUsuario(u) {
   const su = abaUsuarios(), n = su.getLastRow() - 1, k = chaveUsuario(u);
   if (n < 1) return null;
   const vals = su.getRange(2, 1, n, CAB_USU.length).getValues();
   for (let i = 0; i < vals.length; i++) {
-    if (vals[i][0] === k) return { linha: i + 2, usuario: vals[i][0], nome: vals[i][1], ativo: vals[i][2], hash: vals[i][5], salt: vals[i][6] };
+    if (String(vals[i][0]).toLowerCase() === k) return { linha: i + 2, email: k, nome: vals[i][1], situacao: vals[i][2] };
   }
   return null;
 }
@@ -167,38 +163,7 @@ function acharUsuario(u) {
 const ACOES = {
   ping() { return { versao: VERSAO_API, agora: Date.now(), googleClientId: GOOGLE_CLIENT_ID.indexOf('COLE_AQUI') === 0 ? '' : GOOGLE_CLIENT_ID }; },
 
-  login(q) {
-    const u = acharUsuario(q.usuario);
-    if (!u || !u.hash) return { novo: true, reset: !!u };
-    if (u.ativo !== 'Sim') throw new Error('Usuário bloqueado. Fale com o administrador.');
-    if (hashSenha(q.senha, u.salt) !== u.hash) throw new Error('Senha incorreta');
-    abaUsuarios().getRange(u.linha, 5).setValue(new Date());
-    return { sessao: sessaoDe(u.usuario, u.nome, false) };
-  },
-
-  cadastrar(q) {
-    const lock = LockService.getScriptLock(); lock.waitLock(30000);
-    try {
-      const k = chaveUsuario(q.usuario);
-      if (!/^[a-z0-9._-]{3,30}$/.test(k)) throw new Error('Usuário deve ter de 3 a 30 letras/números, sem espaços');
-      if (String(q.senha || '').length < 4) throw new Error('A senha precisa ter pelo menos 4 caracteres');
-      const nome = String(q.nome || q.usuario).trim().slice(0, 60);
-      const salt = Utilities.getUuid();
-      const hash = hashSenha(q.senha, salt);
-      const u = acharUsuario(k);
-      const su = abaUsuarios();
-      if (u && u.hash) throw new Error('Este usuário já existe');
-      if (u) {
-        if (u.ativo !== 'Sim') throw new Error('Usuário bloqueado. Fale com o administrador.');
-        su.getRange(u.linha, 2).setValue(nome);
-        su.getRange(u.linha, 5, 1, 3).setValues([[new Date(), hash, salt]]);
-      } else {
-        su.appendRow([k, nome, 'Sim', new Date(), new Date(), hash, salt]);
-      }
-      return { sessao: sessaoDe(k, nome, false) };
-    } finally { lock.releaseLock(); }
-  },
-
+  // Login com Google (todos). Técnico novo fica "Pendente" até o administrador liberar.
   loginGoogle(q) {
     if (GOOGLE_CLIENT_ID.indexOf('COLE_AQUI') === 0) throw new Error('Login Google ainda não configurado no servidor');
     const r = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(q.credencial), { muteHttpExceptions: true });
@@ -206,24 +171,38 @@ const ACOES = {
     const t = JSON.parse(r.getContentText());
     const email = String(t.email || '').toLowerCase();
     if (t.aud !== GOOGLE_CLIENT_ID || String(t.email_verified) !== 'true') throw new Error('Login Google inválido');
-    if (email !== props().getProperty('ADMIN_EMAIL')) throw new Error('Esta conta Google não é a do administrador');
-    return { sessao: sessaoDe(email, t.given_name || t.name || 'Administrador', true) };
+    const nome = String(t.name || t.given_name || email.split('@')[0]).slice(0, 60);
+    if (email === props().getProperty('ADMIN_EMAIL')) return { sessao: sessaoDe(email, nome, true) };
+
+    const lock = LockService.getScriptLock(); lock.waitLock(30000);
+    try {
+      const su = abaUsuarios();
+      const u = acharUsuario(email);
+      if (!u) {
+        su.appendRow([email, nome, 'Pendente', new Date(), new Date()]);
+        return { pendente: true, nome: nome, email: email };
+      }
+      su.getRange(u.linha, 5).setValue(new Date());
+      if (u.situacao === 'Pendente') return { pendente: true, nome: nome, email: email };
+      if (u.situacao !== 'Liberado') throw new Error('Seu acesso está bloqueado. Fale com o administrador.');
+      if (u.nome !== nome) su.getRange(u.linha, 2).setValue(nome);
+      return { sessao: sessaoDe(email, nome, false) };
+    } finally { lock.releaseLock(); }
   },
 
   usuarios() {
     const su = abaUsuarios(), n = su.getLastRow() - 1;
     if (n < 1) return { usuarios: [] };
     return { usuarios: su.getRange(2, 1, n, 5).getValues().map(function (v) {
-      return { usuario: v[0], nome: v[1], ativo: v[2] === 'Sim', criadoEm: v[3] ? new Date(v[3]).getTime() : null, ultimoAcesso: v[4] ? new Date(v[4]).getTime() : null };
+      return { email: v[0], nome: v[1], situacao: v[2], criadoEm: v[3] ? new Date(v[3]).getTime() : null, ultimoAcesso: v[4] ? new Date(v[4]).getTime() : null };
     }) };
   },
 
   usuarioAcao(q) {
-    const u = acharUsuario(q.usuario); if (!u) throw new Error('Usuário não encontrado');
+    const u = acharUsuario(q.email); if (!u) throw new Error('Usuário não encontrado');
     const su = abaUsuarios();
-    if (q.op === 'bloquear') su.getRange(u.linha, 3).setValue('Não');
-    else if (q.op === 'desbloquear') su.getRange(u.linha, 3).setValue('Sim');
-    else if (q.op === 'resetar') su.getRange(u.linha, 6, 1, 2).setValues([['', '']]);
+    if (q.op === 'liberar') su.getRange(u.linha, 3).setValue('Liberado');
+    else if (q.op === 'bloquear') su.getRange(u.linha, 3).setValue('Bloqueado');
     else if (q.op === 'excluir') su.deleteRow(u.linha);
     else throw new Error('Operação inválida');
     return {};
