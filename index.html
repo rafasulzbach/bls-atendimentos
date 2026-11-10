@@ -456,7 +456,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.9.6';
+const APP_VERSAO = '1.9.7';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1957,9 +1957,8 @@ async function vConfig() {
       <div class="ulist" id="usuList"><span style="color:var(--muted)">Carregando...</span></div></div>
     <div class="card cfg" style="max-width:660px;margin-top:14px">
       <h3 style="margin-top:0">IA dos manuais (Gemini)</h3>
-      <p style="color:var(--muted);margin-top:0">Chave gratuita criada no Google AI Studio. Ela fica guardada só no seu servidor do Google.</p>
+      <p style="color:var(--muted);margin-top:0">Chave gratuita criada no Google AI Studio. Ela fica guardada só no seu servidor do Google. O modelo é escolhido automaticamente: o mais novo e econômico disponível, trocando sozinho se algum estiver sobrecarregado.</p>
       <label>Chave da API</label><input class="inp" id="iaChave" type="text" name="gemini-api-key-nao-preencher" autocomplete="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" style="-webkit-text-security:disc" placeholder="Cole aqui a chave do Gemini (começa com AQ.)">
-      <label>Modelo</label><input class="inp" id="iaModelo" autocomplete="off" placeholder="gemini-flash-latest">
       <div class="btnrow"><button class="btn" data-ia="salvar">Salvar</button><button class="btn sec" data-ia="testar">Testar a IA</button></div>
       <div id="iaStatus" style="margin-top:10px;font-size:14px;color:var(--muted)">Carregando...</div></div>
     <div class="card cfg" style="max-width:660px;margin-top:14px">
@@ -1997,18 +1996,18 @@ async function iaAcao(a) {
     if (a === 'testar') {
       st('Testando...');
       let info = '';
-      try { const c = await Sync.api('iaConfig', {}); info = c.temChave ? `Chave salva: começa com <b>${esc(c.inicio || '?')}</b>, termina em <b>${esc(c.final)}</b>, ${c.tamanho || '?'} caracteres · modelo <b>${esc(c.modelo)}</b><br>` : 'Nenhuma chave salva.<br>'; } catch (e) {}
-      try { await Sync.api('iaTestar'); st(info + '<b style="color:var(--ok)">✓ A IA respondeu. Tudo certo!</b>'); }
+      try { const c = await Sync.api('iaConfig', {}); info = c.temChave ? `Chave salva: começa com <b>${esc(c.inicio || '?')}</b>, termina em <b>${esc(c.final)}</b>, ${c.tamanho || '?'} caracteres<br>` : 'Nenhuma chave salva.<br>'; } catch (e) {}
+      try { const t = await Sync.api('iaTestar'); st(info + `<b style="color:var(--ok)">✓ A IA respondeu. Tudo certo!</b>${t.modelo ? ` · modelo em uso: <b>${esc(t.modelo)}</b>` : ''}`); }
       catch (e) { st(info + `<span style="color:var(--red)">${esc(e.message)}</span>`); }
       return;
     }
     const chave = $('#iaChave') ? $('#iaChave').value.replace(/[\s"'`]/g, '') : '';
     if (a === 'salvar' && chave && !/^(AIza[0-9A-Za-z_\-]{30,}|AQ\.[0-9A-Za-z_.\-]{30,})$/.test(chave)) { st('<span style="color:var(--red)">Essa não parece uma chave do Gemini (ela começa com <b>AQ.</b> ou <b>AIza</b>). Copie de novo pelo botão <b>Copiar chave</b> do AI Studio.</span>'); return; }
-    const dados = a === 'salvar' ? { chaveIA:chave, modelo:$('#iaModelo').value.trim() } : {};
+    if (a === 'salvar' && !chave) { st('<span style="color:var(--red)">Cole a chave antes de salvar.</span>'); return; }
+    const dados = a === 'salvar' ? { chaveIA:chave } : {};
     const r = await Sync.api('iaConfig', dados);
-    if ($('#iaModelo') && !$('#iaModelo').value) $('#iaModelo').value = r.modelo;
     if (a === 'salvar') { $('#iaChave').value = ''; toast('Configuração da IA salva ✓'); }
-    st(r.temChave ? `Chave configurada: começa com <b>${esc(r.inicio || '')}</b>, termina em <b>${esc(r.final)}</b>${r.tamanho ? `, ${r.tamanho} caracteres` : ''} · modelo <b>${esc(r.modelo)}</b>` : '<b style="color:var(--red)">Nenhuma chave configurada.</b>');
+    st(r.temChave ? `Chave configurada: começa com <b>${esc(r.inicio || '')}</b>, termina em <b>${esc(r.final)}</b>${r.tamanho ? `, ${r.tamanho} caracteres` : ''} · modelo: <b>${esc(r.modelo)}</b>` : '<b style="color:var(--red)">Nenhuma chave configurada.</b>');
   } catch (e) { st(`<span style="color:var(--red)">${esc(e.message)}</span>`); }
 }
 async function salvarPermissoes() {

@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.8';
+const VERSAO_API = '1.9';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -569,18 +569,45 @@ function motivoErro(txt) {
     return e.message + (motivos ? ' [' + motivos + ']' : '') + (e.status ? ' {' + e.status + '}' : '');
   } catch (x) { return String(txt).slice(0, 200); }
 }
-function gemini(parts, sistema) {
+/* Escolha automática do modelo: o Flash mais novo (bom e econômico); para tarefas simples (ler página escaneada), o Flash-Lite.
+   A lista é atualizada uma vez por dia direto do Google, então novos modelos entram sozinhos. */
+function modelosAuto(key, leve) {
+  const p = props();
+  let lista = null;
+  try { const c = JSON.parse(p.getProperty('MODELOS_CACHE') || 'null'); if (c && Date.now() - c.em < DIAS && c.flash) lista = c; } catch (e) {}
+  if (!lista) {
+    lista = { em: Date.now(), flash: [], lite: [] };
+    try {
+      let r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key }, muteHttpExceptions: true });
+      if (r.getResponseCode() !== 200) r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(key), { muteHttpExceptions: true });
+      if (r.getResponseCode() === 200) {
+        const cands = (JSON.parse(r.getContentText()).models || [])
+          .filter(function (m) { return (m.supportedGenerationMethods || []).indexOf('generateContent') >= 0; })
+          .map(function (m) { const n = String(m.name).replace('models/', ''); const x = n.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/); return x ? { n: n, v: parseFloat(x[1]), lite: !!x[2] } : null; })
+          .filter(function (c) { return c; })
+          .sort(function (a, b) { return b.v - a.v; });
+        lista.flash = cands.filter(function (c) { return !c.lite; }).slice(0, 2).map(function (c) { return c.n; });
+        lista.lite = cands.filter(function (c) { return c.lite; }).slice(0, 2).map(function (c) { return c.n; });
+      }
+    } catch (e) {}
+    p.setProperty('MODELOS_CACHE', JSON.stringify(lista));
+  }
+  const flash = lista.flash.concat(['gemini-flash-latest', 'gemini-2.5-flash']);
+  const lite = lista.lite.concat(['gemini-flash-lite-latest', 'gemini-2.5-flash-lite']);
+  let ordem = leve ? lite.concat(flash) : flash.concat(lite);
+  const ok = p.getProperty(leve ? 'MODELO_OK_LEVE' : 'MODELO_OK');
+  if (ok) ordem = [ok].concat(ordem);
+  return ordem.filter(function (m, i) { return m && ordem.indexOf(m) === i; });
+}
+function gemini(parts, sistema, leve) {
   const p = props();
   const key = p.getProperty('GEMINI_KEY');
   if (!key) throw new Error('A chave da IA ainda não foi configurada (Ajustes → IA dos manuais).');
-  const principal = p.getProperty('GEMINI_MODELO') || MODELO_PADRAO;
-  // se o modelo escolhido estiver sobrecarregado, tenta outros modelos gratuitos
-  const modelos = [principal].concat(['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite']
-    .filter(function (m) { return m !== principal; }));
+  const modelos = modelosAuto(key, leve);
   const body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json' } };
   if (sistema) body.systemInstruction = { parts: [{ text: sistema }] };
   const payload = JSON.stringify(body);
-  let ultimo = '';
+  let ultimo = '', limite = 0;
   for (let mi = 0; mi < modelos.length; mi++) {
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelos[mi]) + ':generateContent';
     for (let tentativa = 0; tentativa < 2; tentativa++) {
@@ -591,20 +618,23 @@ function gemini(parts, sistema) {
       }
       const code = r.getResponseCode(), txt = r.getContentText();
       if (code === 200) {
+        p.setProperty(leve ? 'MODELO_OK_LEVE' : 'MODELO_OK', modelos[mi]);
         const j = JSON.parse(txt);
         const c = j.candidates && j.candidates[0];
         const out = c && c.content && c.content.parts ? c.content.parts.map(function (x) { return x.text || ''; }).join('') : '';
         if (!out) throw new Error('A IA não retornou resposta. Tente reformular a pergunta.');
-        try { return JSON.parse(out); } catch (e) { const m = out.match(/\{[\s\S]*\}/); if (m) return JSON.parse(m[0]); throw new Error('Resposta inválida da IA'); }
+        try { const res = JSON.parse(out); res._modelo = modelos[mi]; return res; }
+        catch (e) { const m = out.match(/\{[\s\S]*\}/); if (m) { const res = JSON.parse(m[0]); res._modelo = modelos[mi]; return res; } throw new Error('Resposta inválida da IA'); }
       }
       ultimo = 'Erro da IA (' + code + ', ' + modelos[mi] + '): ' + motivoErro(txt);
-      if (code === 400 || code === 401 || code === 403) throw new Error(ultimo);            // chave ou pedido inválido: não adianta repetir
-      if (code === 404) break;                                                               // modelo não existe: tenta o próximo
-      if (code === 429 && mi === modelos.length - 1) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.');
-      if (code === 429) break;                                                               // limite deste modelo: tenta o próximo
-      Utilities.sleep(1500 * (tentativa + 1));                                               // 500/503: sobrecarga passageira
+      if (code === 400 && /API_KEY|API key/i.test(txt)) throw new Error(ultimo);   // chave inválida: não adianta trocar de modelo
+      if (code === 401 || code === 403) throw new Error(ultimo);
+      if (code === 404 || code === 400) break;                                    // modelo indisponível: tenta o próximo
+      if (code === 429) { limite++; break; }                                      // limite deste modelo: tenta o próximo
+      Utilities.sleep(1500 * (tentativa + 1));                                    // 500/503: sobrecarga passageira
     }
   }
+  if (limite === modelos.length) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.');
   throw new Error('A IA do Google está sobrecarregada agora. Tente de novo em 1 ou 2 minutos. (' + ultimo + ')');
 }
 
@@ -665,13 +695,13 @@ const ACOES_MANUAIS = {
     if (q.chaveIA) p.setProperty('GEMINI_KEY', String(q.chaveIA).replace(/[\s"'`]/g, ''));
     const atual = p.getProperty('GEMINI_KEY') || '';
     if (atual && atual === p.getProperty('CHAVE')) p.deleteProperty('GEMINI_KEY');   // limpa a chave errada salva antes
-    if (q.modelo) p.setProperty('GEMINI_MODELO', String(q.modelo).trim());
+    if (q.chaveIA) { p.deleteProperty('MODELOS_CACHE'); p.deleteProperty('MODELO_OK'); p.deleteProperty('MODELO_OK_LEVE'); }
     const k = p.getProperty('GEMINI_KEY') || '';
-    return { temChave: !!k, inicio: k.slice(0, 3), final: k ? k.slice(-4) : '', tamanho: k.length, modelo: p.getProperty('GEMINI_MODELO') || MODELO_PADRAO };
+    return { temChave: !!k, inicio: k.slice(0, 3), final: k ? k.slice(-4) : '', tamanho: k.length, modelo: p.getProperty('MODELO_OK') || 'automático' };
   },
   iaTestar() {
     const r = gemini([{ text: 'Responda apenas o JSON {"resposta":"ok"}' }]);
-    return { resposta: r.resposta || 'ok' };
+    return { resposta: r.resposta || 'ok', modelo: r._modelo };
   },
   manualIniciar(q) {
     const id = Utilities.getUuid().slice(0, 13);
@@ -685,7 +715,7 @@ const ACOES_MANUAIS = {
     parts.push({ text: 'As imagens acima são as páginas ' + (q.paginas || []).join(', ') + ' de um manual técnico de refrigeração. ' +
       'Transcreva fielmente todo o texto de cada página, incluindo tabelas (uma linha por linha da tabela, colunas separadas por " | "), códigos e valores. ' +
       'Não resuma nem traduza. Responda em JSON: {"paginas": [{"n": número da página, "texto": "..."}]} na mesma ordem das imagens.' });
-    const r = gemini(parts);
+    const r = gemini(parts, null, true);
     return { paginas: (r.paginas || []).map(function (x, i) { return { n: Number(x.n) || (q.paginas || [])[i], texto: String(x.texto || '') }; }) };
   },
   manualConcluir(q, sess) {
