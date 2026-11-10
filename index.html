@@ -385,7 +385,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.6.3';
+const APP_VERSAO = '1.6.4';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -889,7 +889,7 @@ async function vTeste(lista, testes) {
 async function novoTeste() {
   const agora = Date.now();
   const t = { id:uid(), tipo:'teste', numero:null, criadoEm:agora, atualizadoEm:agora, status:'pendente',
-    os:'', avaliador:quem(), local:lsGet('ultimoLocalTeste') || '', data:hojeISO(), placa:'', veiculo:'', equipamento:'', serie:'',
+    os:'', avaliador:'', local:lsGet('ultimoLocalTeste') || '', data:hojeISO(), placa:'', veiculo:'', equipamento:'', serie:'',
     motor:{ estacionario:'', eletrico:'', horimetro:'', prov:'' }, camara:{ vedacao:'', aspecto:'', prov:'' },
     temps:{ t0:'', t1:'', t2:'', t3:'' }, criadoPor:quem(), historico:[{ status:'pendente', em:agora, por:quem() }] };
   await gravar(t);
@@ -898,8 +898,9 @@ async function novoTeste() {
 function botoesBR(t, g, k) {
   return ['Bom', 'Ruim'].map(v => `<button class="${t[g][k] === v ? 'on ' + (v === 'Bom' ? 'bom' : 'ruim') : ''}" data-set="${g}.${k}" data-v="${v}">${t[g][k] === v ? '✓ ' : ''}${v}</button>`).join('');
 }
-async function vTesteForm() {
+async function vTesteForm(lista, testes) {
   const t = await getAtend(atual.id);
+  const aval = [...new Set((testes || []).map(x => String(x.avaliador || '').trim()).filter(Boolean))];
   if (!t) return go('teste');
   normTeste(t);
   if (t.status === 'concluido') return go('testeDet', t.id);
@@ -913,7 +914,8 @@ async function vTesteForm() {
     <div class="fields">
       <div class="field"><div class="flabel">Identificação</div><div class="tgrid">
         ${campo('os', 'Ordem de serviço <span class="opc">opcional</span>', 'Nº da OS', 'inputmode="numeric"')}
-        ${campo('avaliador', 'Avaliador', 'Nome do avaliador', '', true)}
+        ${campo('avaliador', 'Avaliador', 'Digite o nome de quem avaliou', 'list="dlAval"', true)}
+        <datalist id="dlAval">${aval.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
         ${campo('local', 'Local', 'Cidade / local do teste')}
         ${campo('data', 'Data do teste', '', 'type="date"', true)}
         ${campo('placa', 'Placa', 'ABC1D23', 'maxlength="10"', true)}
