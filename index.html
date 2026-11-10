@@ -203,6 +203,14 @@ textarea.inp{min-height:110px;resize:vertical}
 .urow .un{flex:1;min-width:160px}
 .urow .un small{display:block;color:var(--muted);font-size:12.5px}
 .urow .btn{padding:6px 10px;font-size:13px}
+/* Instalar app */
+.inst{position:relative;display:flex;align-items:center;gap:14px;padding-right:40px!important;background:#fff;border:2px solid var(--acc);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;box-shadow:var(--sh)}
+.inst .ii{font-size:30px}
+.inst .it{flex:1;font-size:14px;color:var(--muted);line-height:1.45}
+.inst .it b{color:var(--ink)}
+.inst .it .tt{color:var(--ink);display:block;font-size:15.5px;font-weight:700;margin-bottom:2px}
+.inst .x{position:absolute;top:6px;right:6px;color:var(--muted);font-size:18px;padding:4px 8px}
+@media (max-width:820px){.inst{flex-wrap:wrap}.inst .btn{width:100%}}
 /* Modal / visualizador / toast */
 .modal-bg{position:fixed;inset:0;background:rgba(10,20,40,.55);display:grid;place-items:center;z-index:90;padding:16px}
 .modal{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -308,7 +316,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.3.3';
+const APP_VERSAO = '1.4.0';
 /* =========================================================
    Utilidades
    ========================================================= */
@@ -655,6 +663,7 @@ async function vInicio(lista) {
   cab('Início', new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' }));
   const pend = lista.filter(a => a.status === 'pendente');
   $('#view').innerHTML = `
+    <div id="instBanner">${bannerInstalar()}</div>
     <div class="hero"><div><h2>Novo atendimento</h2><p>Ao criar, o atendimento já fica salvo como <b>Pendente</b>. Todos os itens são obrigatórios para finalizar.</p></div>
       <button class="btn big" data-act="novo">＋ Novo atendimento</button></div>
     <div class="sec-title">Atendimentos pendentes <span class="count">${pend.length}</span></div>
@@ -1277,6 +1286,56 @@ async function configPorLink() {
 }
 $('#syncInfo').onclick = () => Sync.rodar();
 
+/* ---------- Instalar app no celular ---------- */
+let promptInstalar = null;
+const emApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const ehCelular = ehIOS || /android|mobile/i.test(navigator.userAgent);
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); promptInstalar = e; atualizarInstalar(); });
+window.addEventListener('appinstalled', () => { promptInstalar = null; lsSet('instalado', '1'); atualizarInstalar(); toast('App instalado ✓ Agora abra pelo ícone BLS na tela inicial.', 5000); });
+function podeOferecer() { return ehCelular && !emApp() && !!Sessao.get() && lsGet('instalarFechado') !== '1'; }
+function passosInstalar() {
+  if (ehIOS) return 'Toque em <b>Compartilhar</b> (o quadrado com a seta ⬆️, na barra do Safari) e depois em <b>Adicionar à Tela de Início</b>.';
+  return 'Abra o menu do navegador (<b>⋮</b> ou <b>☰</b>) e toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.';
+}
+function bannerInstalar() {
+  if (!podeOferecer()) return '';
+  if (promptInstalar) return `<div class="inst"><span class="ii">📲</span><div class="it"><span class="tt">Instale o app no celular</span>Fica com ícone na tela inicial e abre direto, sem navegador.</div>
+    <button class="btn" data-inst="sim">Instalar app</button><button class="x" data-inst="fechar" title="Agora não">✕</button></div>`;
+  return `<div class="inst"><span class="ii">📲</span><div class="it"><span class="tt">Instale o app no celular</span>${passosInstalar()}</div><button class="x" data-inst="fechar" title="Agora não">✕</button></div>`;
+}
+function atualizarInstalar() { const el = $('#instBanner'); if (el) el.innerHTML = bannerInstalar(); }
+async function instalarAgora() {
+  if (!promptInstalar) { await modal({ titulo:'Instalar o app', corpo:passosInstalar(), botoes:[{ label:'Entendi', valor:1 }] }); return; }
+  promptInstalar.prompt();
+  const r = await promptInstalar.userChoice.catch(() => null);
+  if (r && r.outcome === 'accepted') { promptInstalar = null; atualizarInstalar(); }
+}
+async function oferecerInstalar() {
+  if (!podeOferecer()) return;
+  await new Promise(r => setTimeout(r, 1200));          // dá tempo do navegador liberar a instalação
+  if (!podeOferecer()) return;
+  const r = await modal({ titulo:'📲 Instalar o app BLS?',
+    corpo: promptInstalar ? 'Instale para abrir direto pelo ícone na tela inicial, sem precisar do navegador nem do link.'
+                          : 'Para abrir direto pelo ícone na tela inicial:<br><br>' + passosInstalar(),
+    botoes: promptInstalar ? [{ label:'Agora não', cls:'ghost', valor:false }, { label:'Instalar', valor:true }] : [{ label:'Entendi', valor:false }] });
+  if (r) instalarAgora();
+}
+// iPhone: o app instalado não enxerga os dados do Safari; o atalho já leva a conexão junto
+function prepararAtalhoIOS() {
+  if (!ehIOS || emApp() || !Sync.cfg()) return;
+  const c = Sync.cfg();
+  const url = location.origin + location.pathname + '?cfg=' + encodeURIComponent(btoa(JSON.stringify({ u:c.url, k:c.chave })));
+  try {
+    const man = { name:'BLS Refrigeração · Atendimentos', short_name:'BLS Atendimentos', start_url:url, scope:location.origin + location.pathname,
+      display:'standalone', background_color:'#142269', theme_color:'#142269',
+      icons:[{ src:location.origin + location.pathname + 'icons/icon-192.png', sizes:'192x192', type:'image/png' },
+             { src:location.origin + location.pathname + 'icons/icon-512.png', sizes:'512x512', type:'image/png' }] };
+    document.querySelector('link[rel=manifest]').href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(man));
+    history.replaceState(null, '', url);
+  } catch (e) {}
+}
+
 /* ---------- Entrada (login) ---------- */
 function gateMsg(t) { const m = $('#gMsg'); if (m) m.textContent = t || ''; }
 function gateCarregando(btn, sim) { if (!btn) return; btn.disabled = sim; if (sim) { btn.dataset.t = btn.textContent; btn.textContent = 'Aguarde...'; } else if (btn.dataset.t) btn.textContent = btn.dataset.t; }
@@ -1349,6 +1408,8 @@ function entrouCom(sessao) {
   go('inicio');
   Sync.rodar();
   verificarPendentes();
+  prepararAtalhoIOS();
+  oferecerInstalar();
 }
 async function verificarPendentes() {
   const b = $('#bCfg'); if (!Sessao.admin()) { b.classList.add('hidden'); return; }
@@ -1382,6 +1443,10 @@ $('#view').addEventListener('click', async e => {
   if ((el = t.closest('[data-deldraft]'))) { e.stopPropagation(); obsDraft.fotos.splice(+el.dataset.deldraft, 1); freeUrls(); return render(); }
   if ((el = t.closest('[data-delobs]'))) { return excluirObs(el.dataset.delobs); }
   if ((el = t.closest('[data-obs]'))) { return obsAcao(el.dataset.obs); }
+  if ((el = t.closest('[data-inst]'))) {
+    if (el.dataset.inst === 'fechar') { lsSet('instalarFechado', '1'); atualizarInstalar(); toast('Você pode instalar depois pelo menu do navegador.'); return; }
+    return instalarAgora();
+  }
   if ((el = t.closest('[data-cfg]'))) { return cfgAcao(el.dataset.cfg); }
   if ((el = t.closest('[data-usu]'))) { return usuarioAcao(el.dataset.usu, el.dataset.op); }
   if ((el = t.closest('[data-cob]')))  { return mudarCobranca(el.closest('[data-id]').dataset.id, el.dataset.cob); }
@@ -1428,6 +1493,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sav
     aplicarPerfil();
     if (!Sync.cfg() || !Sessao.get()) mostrarGate();
     await configPorLink();
+    prepararAtalhoIOS();
     await render();
     Sync.rodar();
     if (Sessao.admin()) verificarPendentes();
