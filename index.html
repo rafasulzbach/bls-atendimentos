@@ -308,7 +308,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.3.1';
+const APP_VERSAO = '1.3.2';
 /* =========================================================
    Utilidades
    ========================================================= */
@@ -1315,7 +1315,7 @@ async function prepararGoogle() {
   let cid = lsGet('googleClientId') || '';
   try { cid = (await Sync.api('ping')).googleClientId || ''; lsSet('googleClientId', cid); } catch (e) {}
   if (!$('#gGoogle')) return;
-  if (!cid) { el.innerHTML = '<small style="color:var(--muted)">Login do administrador ainda não configurado.</small>'; return; }
+  if (!cid) { el.innerHTML = '<small style="color:var(--muted)">O login com Google será liberado em instantes.</small>'; return; }
   try {
     await carregarScript('https://accounts.google.com/gsi/client');
     google.accounts.id.initialize({ client_id:cid, callback: async r => {
