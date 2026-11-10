@@ -385,7 +385,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.6.4';
+const APP_VERSAO = '1.6.5';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1027,7 +1027,7 @@ async function vTesteDet() {
       ${grafico(t)}</div>
     <div class="card det-sec"><h3>Validade do teste (180 dias)</h3><div class="valid">${VALIDADE_TXT}</div></div>
     <div class="card det-sec"><h3>Histórico</h3><div class="timeline">${t.historico.map(h => `<div>${h.status === 'concluido' ? '<span class="pill s-ok">Concluído</span>' : '<span class="pill s-pend">Pendente</span>'} ${fmtCurto(h.em)}${h.por ? ' · ' + esc(h.por) : ''}</div>`).join('')}</div>
-      ${Sessao.admin() ? '<button class="btn ghost" data-act="reabrirTeste" style="margin-top:12px">✏️ Reabrir para editar</button>' : ''}</div>`;
+      ${Sessao.admin() ? '<div class="btnrow" style="margin-top:12px"><button class="btn ghost" data-act="reabrirTeste">✏️ Reabrir para editar</button><button class="btn danger" data-act="excluirAdm">🗑 Excluir teste</button></div>' : ''}</div>`;
 }
 async function imprimirTeste() {
   const t = normTeste(await getAtend(atual.id));
@@ -1191,6 +1191,19 @@ async function excluir() {
   go('inicio');
 }
 
+async function excluirAdm() {
+  if (!Sessao.admin()) return;
+  const a = await getAtend(atual.id); if (!a) return;
+  const teste = a.tipo === 'teste';
+  const nome = (teste ? 'teste de frio ' : 'atendimento ') + numTxt(a) + (a.placa ? ' (' + a.placa + ')' : '');
+  if (!await confirmar(`Excluir ${nome}?`, teste ? 'Os dados do teste serão apagados de todos os aparelhos e da planilha.'
+      : 'O atendimento sai de todos os aparelhos e da planilha, e a pasta com fotos e vídeos vai para a lixeira do Drive.', 'Excluir', 'danger')) return;
+  for (const id of idsMidias(a)) await DB.del('midia', id);
+  if (Sync.cfg()) { a.excluido = true; await gravar(a); } else await DB.del('atend', a.id);
+  toast((teste ? 'Teste' : 'Atendimento') + ' excluído');
+  go(teste ? 'teste' : 'atendimentos');
+}
+
 /* ---------- Gravação de áudio (descrição) ---------- */
 const AudioRec = {
   rec:null, chunks:[], timer:0, _fim:null,
@@ -1266,7 +1279,8 @@ async function vDetalhe() {
           <button class="btn" data-obs="salvar" style="margin-left:auto">Salvar observação</button>
         </div>
       </div></div>
-    <div class="card det-sec"><h3>Histórico</h3><div class="timeline">${a.historico.map(h => `<div>${pill(h.status)} ${fmtCurto(h.em)}${h.por ? ' · ' + esc(h.por) : ''}</div>`).join('')}</div></div>`;
+    <div class="card det-sec"><h3>Histórico</h3><div class="timeline">${a.historico.map(h => `<div>${pill(h.status)} ${fmtCurto(h.em)}${h.por ? ' · ' + esc(h.por) : ''}</div>`).join('')}</div>
+      ${Sessao.admin() ? '<button class="btn danger" data-act="excluirAdm" style="margin-top:14px">🗑 Excluir atendimento</button>' : ''}</div>`;
   const dOS = $('#detOS');
   dOS.oninput = () => {
     $('#osInfo').textContent = '';
@@ -1792,6 +1806,7 @@ $('#view').addEventListener('click', async e => {
     if (act === 'excluirTeste') return excluirTeste();
     if (act === 'reabrirTeste') return reabrirTeste();
     if (act === 'imprimirTeste') return imprimirTeste();
+    if (act === 'excluirAdm') return excluirAdm();
   }
   if ((el = t.closest('[data-open]'))) {
     const a = await getAtend(el.dataset.open);
