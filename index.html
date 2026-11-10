@@ -458,7 +458,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.0.0';
+const APP_VERSAO = '2.0.1';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1532,6 +1532,7 @@ function respostaHtml(r) {
           <button class="btn sec" data-pagdl="${f.manualId}|${f.pagina}">⬇ Página (PDF)</button>
           <a class="btn ghost" href="${esc(f.link)}" target="_blank" rel="noopener">📘 Manual completo</a></div></div>`).join('')}` : ''}
     ${r.pecas && r.pecas.linhas && r.pecas.linhas.length ? `<h4>Tabela de peças</h4>${tabelaPecas(r.pecas)}` : ''}
+    ${r.sugestoes && r.sugestoes.linhas && r.sugestoes.linhas.length ? `<h4>Peças possivelmente relacionadas (confira)</h4>${tabelaPecas(r.sugestoes)}` : ''}
     <p class="aviso-ia">Resposta gerada por IA a partir dos manuais. Confira na página indicada antes de executar o serviço.</p>
   </div>`;
 }

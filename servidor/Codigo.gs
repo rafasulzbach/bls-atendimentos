@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.0';
+const VERSAO_API = '2.1';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -482,6 +482,7 @@ const SISTEMA_IA = 'Você é o assistente técnico da Refrigeração BLS (autori
   'Nunca invente valores, códigos, torques, pressões ou procedimentos. Se os trechos não trouxerem a resposta, diga claramente que não encontrou essa informação nos manuais cadastrados. ' +
   'Cada trecho traz a data do documento ou da mensagem. Quando houver informações diferentes sobre o mesmo assunto, use a MAIS RECENTE e avise que existe uma informação mais antiga diferente. ' +
   'Trechos marcados como MENSAGENS DO GRUPO são relatos de técnicos num grupo de Telegram, não documentação oficial: deixe isso claro quando a resposta vier deles (ex.: "segundo técnicos no grupo, em 03/2024..."). ' +
+  'Na TABELA DE PEÇAS, procure pelo nome da peça em português ou inglês e por sinônimos (ex.: motor de partida = motor de arranque = starter motor). Se encontrar a peça, informe o código exatamente como está na tabela. ' +
   'Responda em JSON no formato {"resposta": "texto (pode usar **negrito** e listas com - )", "fontes": [números n dos trechos [n] usados], "pecas": [números das linhas P usadas]}.';
 
 function abaManuais() {
@@ -516,7 +517,9 @@ const SINONIMOS = {
   temperatura: ['temperature', 'temp'], oleo: ['oil'], filtro: ['filter'], correia: ['belt'], ventilador: ['fan'], valvula: ['valve'],
   fusivel: ['fuse'], bateria: ['battery'], motor: ['engine', 'motor'], degelo: ['defrost'], evaporador: ['evaporator'],
   condensador: ['condenser'], troca: ['change', 'replace'], trocar: ['change', 'replace'], intervalo: ['interval'], nivel: ['level'],
-  partida: ['start', 'starter'], desligamento: ['shutdown'], aquecimento: ['heat', 'heating'], resfriamento: ['cool', 'cooling'],
+  partida: ['start', 'starter', 'arranque', 'arranq'], arranque: ['starter', 'partida', 'arranq'], starter: ['arranque', 'partida'],
+  alternador: ['alternator', 'altern'], correias: ['belt'], polia: ['pulley'], rolamento: ['bearing'], junta: ['gasket'], retentor: ['seal'],
+  mangueira: ['hose'], termostato: ['thermostat'], solenoide: ['solenoid'], bobina: ['coil'], placa: ['board'], modulo: ['module'], desligamento: ['shutdown'], aquecimento: ['heat', 'heating'], resfriamento: ['cool', 'cooling'],
   refrigerante: ['refrigerant'], gas: ['refrigerant'], carga: ['charge'], vazamento: ['leak'], sensor: ['sensor'],
   manutencao: ['maintenance', 'service'], preventiva: ['preventive'], torque: ['torque'], aperto: ['torque'], rotacao: ['rpm', 'speed'],
   velocidade: ['speed'], combustivel: ['fuel'], bomba: ['pump'], injetor: ['injector'], alternador: ['alternator'], embreagem: ['clutch'],
@@ -561,17 +564,22 @@ function lerIndice(m) {
   try { return JSON.parse(Utilities.ungzip(DriveApp.getFileById(m.indice).getBlob().setContentType('application/x-gzip')).getDataAsString()); }
   catch (e) { return null; }
 }
+const IGNORA_PECAS = { codigo: 1, cod: 1, numero: 1, peca: 1, pecas: 1, preco: 1, valor: 1, referencia: 1, ref: 1, part: 1, parts: 1, code: 1, number: 1 };
 function buscarPecas(termos, max) {
   const sh = abaPecas();
   if (!sh || sh.getLastRow() < 2 || !termos.length) return { cabecalho: [], linhas: [] };
+  const grupos = termos.filter(function (g) { return !IGNORA_PECAS[g[0]]; });
+  if (!grupos.length) return { cabecalho: [], linhas: [] };
   const vals = sh.getDataRange().getDisplayValues();
   const cab = vals.shift();
   const res = [];
   vals.forEach(function (row) {
     const j = norm(row.join(' | '));
-    let sc = 0;
-    termos.forEach(function (g) { if (g.some(function (t) { return j.indexOf(t) >= 0; })) sc += /\d/.test(g[0]) ? 10 : (g[0].length >= 4 ? 2 : 0.5); });
-    if (sc >= 2) res.push({ sc: sc, row: row });
+    let peso = 0, bateu = 0;
+    grupos.forEach(function (g) {
+      if (g.some(function (t) { return j.indexOf(t) >= 0; })) { bateu++; peso += /\d/.test(g[0]) ? 10 : (g[0].length >= 4 ? 2 : 0.5); }
+    });
+    if (bateu && (grupos.length === 1 || bateu >= 2 || peso >= 10)) res.push({ sc: bateu * 100 + peso, row: row });
   });
   res.sort(function (a, b) { return b.sc - a.sc; });
   return { cabecalho: cab, linhas: res.slice(0, max).map(function (r) { return r.row; }) };
@@ -683,7 +691,7 @@ const ACOES_MANUAIS = {
     });
     cands.sort(function (a, b) { return b.sc - a.sc; });
     const top = cands.slice(0, 6);
-    const pecas = buscarPecas(termos, 12);
+    const pecas = buscarPecas(termos, 25);
     if (!top.length && !pecas.linhas.length) {
       return { resposta: 'Não encontrei nada sobre isso nos manuais e na tabela de peças cadastrados. Tente usar outras palavras, o código do alarme ou o modelo do equipamento.', fontes: [], pecas: { cabecalho: [], linhas: [] } };
     }
@@ -703,7 +711,8 @@ const ACOES_MANUAIS = {
       });
     const pu = (r.pecas || []).map(function (n) { return parseInt(String(n).replace(/\D/g, ''), 10); })
       .filter(function (n) { return n >= 1 && n <= pecas.linhas.length; });
-    return { resposta: String(r.resposta || ''), fontes: fontes, pecas: { cabecalho: pecas.cabecalho, linhas: pu.map(function (n) { return pecas.linhas[n - 1]; }) } };
+    return { resposta: String(r.resposta || ''), fontes: fontes, pecas: { cabecalho: pecas.cabecalho, linhas: pu.map(function (n) { return pecas.linhas[n - 1]; }) },
+             sugestoes: pu.length ? null : { cabecalho: pecas.cabecalho, linhas: pecas.linhas.slice(0, 8) } };
   },
 
   pecasBuscar(q) {
