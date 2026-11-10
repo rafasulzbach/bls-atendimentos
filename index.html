@@ -456,7 +456,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.9.7';
+const APP_VERSAO = '1.9.8';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -2083,7 +2083,15 @@ async function configPorLink() {
   mostrarGate('conectando');
   if (!await conectar({ url:d.u, chave:d.k })) mostrarGate('conectar', 'Não foi possível conectar pelo link. Verifique a internet e tente abrir o link de novo.');
 }
-$('#syncInfo').onclick = () => Sync.rodar();
+$('#syncInfo').onclick = async () => {
+  const e = Sync.estado;
+  if (e.tipo === 'erro' || e.tipo === 'offline' || e.tipo === 'local') {
+    const r = await modal({ titulo:'Sincronização', corpo:`<b>${esc(e.txt.replace(/^\S+\s/, ''))}</b>${e.dica ? `<br><br>Motivo: ${esc(e.dica)}` : ''}<br><br>Os dados continuam salvos neste aparelho e serão enviados quando a conexão com o servidor voltar.`,
+      botoes:[{ label:'Fechar', cls:'ghost', valor:false }, { label:'Tentar de novo', valor:true }] });
+    if (!r) return;
+  }
+  await Sync.rodar(); toast(Sync.estado.txt + (Sync.estado.dica ? ' — ' + Sync.estado.dica : ''), 4500);
+};
 
 /* ---------- Instalar app no celular ---------- */
 let promptInstalar = null;
