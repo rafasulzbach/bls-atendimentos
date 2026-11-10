@@ -5,14 +5,14 @@
  *
  * COMO INSTALAR / ATUALIZAR:
  *   1) script.google.com → projeto "BLS Atendimentos" → apague tudo, cole este código → Salvar
- *   2) Cole o ID do cliente Google em GOOGLE_CLIENT_ID (logo abaixo)
+ *   2) (o ID do cliente Google já está preenchido abaixo)
  *   3) Escolha a função "configurar" e clique em Executar (autorize se pedir)
  *   4) Implantar → Gerenciar implantações → ✏ Editar → Versão: "Nova versão" → Implantar
  *      (a URL continua a mesma)
  */
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
-const GOOGLE_CLIENT_ID = 'COLE_AQUI_O_ID_DO_CLIENTE.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
 const VERSAO_API = '1.2';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
