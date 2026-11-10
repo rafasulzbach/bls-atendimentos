@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.3';
+const VERSAO_API = '1.4';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -22,7 +22,9 @@ const CAB_TESTE = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Data do teste', 'Avali
              'Equipamento (marca/modelo)', 'Nº série', 'Estacionário', 'Elétrico', 'Horímetro', 'Providências motor',
              'Vedação', 'Aspecto geral', 'Providências câmara', 'Temp. inicial', 'Temp. 1h', 'Temp. 2h', 'Temp. 3h',
              'Válido até', 'Criado por', 'Alterado por', 'Excluído', 'Servidor', 'JSON'];
-const CAB_USU = ['E-mail', 'Nome', 'Situação', 'Criado em', 'Último acesso'];
+const CAB_USU = ['E-mail', 'Nome (Google)', 'Situação', 'Criado em', 'Último acesso', 'Categoria', 'Nome no app'];
+const ABAS = ['atendimentos', 'cobranca', 'teste'];                       // abas que podem ser liberadas
+const PERM_PADRAO = { tecnico: ['atendimentos', 'teste'], geral: ['atendimentos', 'cobranca', 'teste'] };
 const STATUS = { pendente: 'Pendente', em_espera: 'Em espera', enviado: 'Enviado', concluido: 'Concluído' };
 const DIAS = 24 * 60 * 60 * 1000;
 
@@ -75,6 +77,12 @@ function configurar() {
       .setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
     su.setFrozenRows(1);
   }
+  su.getRange(1, 1, 1, CAB_USU.length).setValues([CAB_USU])
+    .setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
+  if (su.getLastRow() > 1) {   // usuários antigos sem categoria viram Técnico
+    const r = su.getRange(2, 6, su.getLastRow() - 1, 1); const v = r.getValues();
+    r.setValues(v.map(function (x) { return [x[0] || 'Técnico']; }));
+  }
   pastaAtendimentos();
   if (!p.getProperty('CHAVE')) p.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, '').slice(0, 16).toUpperCase());
   if (!p.getProperty('SEGREDO')) p.setProperty('SEGREDO', Utilities.getUuid() + Utilities.getUuid());
@@ -114,7 +122,7 @@ function doGet() {
 }
 
 const PUBLICAS = { ping: 1, loginGoogle: 1 };
-const SO_ADMIN = { usuarios: 1, usuarioAcao: 1 };
+const SO_ADMIN = { usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1 };
 
 function doPost(e) {
   let r;
@@ -154,6 +162,11 @@ function validarToken(tok) {
   if (!p.adm) {
     const u = acharUsuario(p.u);
     if (!u || u.situacao !== 'Liberado') throw new Error('SESSAO: Acesso não liberado');
+    p.n = u.nomeApp || u.nome || p.n;
+    p.cat = u.categoria === 'Geral' ? 'geral' : 'tecnico';
+    p.reg = u;
+  } else {
+    p.n = props().getProperty('ADMIN_NOME') || p.n;
   }
   return p;
 }
@@ -161,13 +174,17 @@ function sessaoDe(usuario, nome, adm) {
   const exp = Date.now() + (adm ? 30 : 365) * DIAS;
   return { token: assinar({ u: usuario, n: nome, adm: !!adm, exp: exp }), usuario: usuario, nome: nome, admin: !!adm, exp: exp };
 }
+function permissoes() {
+  try { const p = JSON.parse(props().getProperty('PERMISSOES') || 'null'); if (p && p.tecnico && p.geral) return p; } catch (e) {}
+  return PERM_PADRAO;
+}
 function chaveUsuario(u) { return String(u || '').trim().toLowerCase(); }
 function acharUsuario(u) {
   const su = abaUsuarios(), n = su.getLastRow() - 1, k = chaveUsuario(u);
   if (n < 1) return null;
   const vals = su.getRange(2, 1, n, CAB_USU.length).getValues();
   for (let i = 0; i < vals.length; i++) {
-    if (String(vals[i][0]).toLowerCase() === k) return { linha: i + 2, email: k, nome: vals[i][1], situacao: vals[i][2] };
+    if (String(vals[i][0]).toLowerCase() === k) return { linha: i + 2, email: k, nome: vals[i][1], situacao: vals[i][2], categoria: vals[i][5] || 'Técnico', nomeApp: vals[i][6] || '' };
   }
   return null;
 }
@@ -192,23 +209,49 @@ const ACOES = {
       const su = abaUsuarios();
       const u = acharUsuario(email);
       if (!u) {
-        su.appendRow([email, nome, 'Pendente', new Date(), new Date()]);
+        su.appendRow([email, nome, 'Pendente', new Date(), new Date(), 'Técnico', '']);
         return { pendente: true, nome: nome, email: email };
       }
       su.getRange(u.linha, 5).setValue(new Date());
       if (u.situacao === 'Pendente') return { pendente: true, nome: nome, email: email };
       if (u.situacao !== 'Liberado') throw new Error('Seu acesso está bloqueado. Fale com o administrador.');
       if (u.nome !== nome) su.getRange(u.linha, 2).setValue(nome);
-      return { sessao: sessaoDe(email, nome, false) };
+      return { sessao: sessaoDe(email, u.nomeApp || nome, false) };
     } finally { lock.releaseLock(); }
+  },
+
+  // Perfil de quem está logado: nome no app, categoria e abas liberadas
+  perfil(q, sess) {
+    const perm = permissoes();
+    if (sess.adm) {
+      return { admin: true, email: sess.u, nomeApp: props().getProperty('ADMIN_NOME') || '', nomeGoogle: sess.n, categoria: 'Administrador', abas: ABAS.concat(['config']), permissoes: perm };
+    }
+    const u = sess.reg;
+    return { admin: false, email: u.email, nomeApp: u.nomeApp, nomeGoogle: u.nome, categoria: u.categoria, abas: perm[sess.cat] || [] };
+  },
+
+  salvarPerfil(q, sess) {
+    const nome = String(q.nomeApp || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (nome.length < 2) throw new Error('Informe o nome');
+    if (sess.adm) props().setProperty('ADMIN_NOME', nome);
+    else abaUsuarios().getRange(sess.reg.linha, 7).setValue(nome);
+    return { nomeApp: nome };
+  },
+
+  salvarPermissoes(q) {
+    const limpa = function (l) { return (l || []).filter(function (a) { return ABAS.indexOf(a) >= 0; }); };
+    const perm = { tecnico: limpa(q.permissoes && q.permissoes.tecnico), geral: limpa(q.permissoes && q.permissoes.geral) };
+    props().setProperty('PERMISSOES', JSON.stringify(perm));
+    return { permissoes: perm };
   },
 
   usuarios() {
     const su = abaUsuarios(), n = su.getLastRow() - 1;
     if (n < 1) return { usuarios: [] };
-    return { usuarios: su.getRange(2, 1, n, 5).getValues().map(function (v) {
-      return { email: v[0], nome: v[1], situacao: v[2], criadoEm: v[3] ? new Date(v[3]).getTime() : null, ultimoAcesso: v[4] ? new Date(v[4]).getTime() : null };
-    }) };
+    return { usuarios: su.getRange(2, 1, n, CAB_USU.length).getValues().map(function (v) {
+      return { email: v[0], nome: v[6] || v[1], nomeGoogle: v[1], situacao: v[2], categoria: v[5] || 'Técnico',
+               criadoEm: v[3] ? new Date(v[3]).getTime() : null, ultimoAcesso: v[4] ? new Date(v[4]).getTime() : null };
+    }), permissoes: permissoes() };
   },
 
   usuarioAcao(q) {
@@ -217,6 +260,7 @@ const ACOES = {
     if (q.op === 'liberar') su.getRange(u.linha, 3).setValue('Liberado');
     else if (q.op === 'bloquear') su.getRange(u.linha, 3).setValue('Bloqueado');
     else if (q.op === 'excluir') su.deleteRow(u.linha);
+    else if (q.op === 'categoria') su.getRange(u.linha, 6).setValue(q.valor === 'Geral' ? 'Geral' : 'Técnico');
     else throw new Error('Operação inválida');
     return {};
   },
