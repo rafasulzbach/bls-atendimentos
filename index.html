@@ -323,6 +323,8 @@ textarea.inp{min-height:110px;resize:vertical}
 .fonte small{display:block;color:var(--muted)}
 .fbtn{display:flex;flex-wrap:wrap;gap:6px}
 .fbtn .btn{padding:8px 12px;font-size:13.5px;text-decoration:none}
+.fonte.msgf{border-left-color:var(--pend)}
+.fonte .trecho{font-size:13px;color:var(--muted);white-space:pre-wrap;max-height:170px;overflow:auto;background:#fff;border-radius:8px;padding:8px 10px}
 .aviso-ia{font-size:12.5px;color:var(--muted);margin:14px 0 0}
 .ptab{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
 .ptab table{border-collapse:collapse;width:100%;font-size:13.5px}
@@ -456,7 +458,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.9.8';
+const APP_VERSAO = '2.0.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1479,12 +1481,12 @@ async function vManuais() {
   let dados;
   try { dados = await carregarManuais(); } catch (e) { $('#manBody').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
   if (atual.view !== 'manuais') return;
-  const marcas = [...new Set(dados.manuais.map(m => m.marca).filter(Boolean))].sort();
+  const marcas = [...new Set(dados.manuais.filter(m => m.tipo !== 'Mensagens do grupo').map(m => m.marca).filter(Boolean))].sort();
   const b = $('#manBody');
   if (manTab === 'ia') {
     b.innerHTML = `<div class="card">
         <h3 style="margin:0 0 6px">Pergunte aos manuais</h3>
-        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">A IA procura nos ${dados.manuais.length} manual(is)${dados.pecas ? ' e na tabela de peças' : ''} e mostra de onde tirou a resposta.</p>
+        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">A IA procura nos ${dados.manuais.filter(m => m.tipo !== 'Mensagens do grupo').length} manual(is)${dados.manuais.some(m => m.tipo === 'Mensagens do grupo') ? ', nas mensagens do grupo' : ''}${dados.pecas ? ' e na tabela de peças' : ''} e mostra de onde tirou a resposta.</p>
         <textarea class="inp" id="mPerg" style="min-height:84px" placeholder="Ex.: O que significa o alarme 34 no Supra 850?">${esc(manResp ? manResp.pergunta : '')}</textarea>
         <div class="mq">${marcas.length > 1 ? `<select class="catsel" id="mMarca"><option value="">Todas as marcas</option>${marcas.map(m => `<option>${esc(m)}</option>`).join('')}</select>` : ''}
           <button class="btn" data-man="perguntar" style="flex:1">✨ Perguntar</button></div>
@@ -1493,12 +1495,12 @@ async function vManuais() {
     const ta = $('#mPerg'); ta.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) perguntarIA(); };
   } else if (manTab === 'bib') {
     const grupos = {};
-    dados.manuais.forEach(m => (grupos[m.marca || 'Outros'] = grupos[m.marca || 'Outros'] || []).push(m));
-    b.innerHTML = `${adm ? `<div class="btnrow" style="margin-bottom:14px"><button class="btn" data-man="novo">＋ Adicionar manual</button></div>` : ''}
+    dados.manuais.filter(m => m.tipo !== 'Mensagens do grupo').forEach(m => (grupos[m.marca || 'Outros'] = grupos[m.marca || 'Outros'] || []).push(m));
+    b.innerHTML = `${adm ? `<div class="btnrow" style="margin-bottom:14px"><button class="btn" data-man="novo">＋ Adicionar manual</button><button class="btn sec" data-man="telegram">📥 Importar do Telegram</button></div>` : ''}
       <input class="search" id="mBusca" placeholder="Buscar manual por marca, modelo ou tipo..." style="width:100%;margin-bottom:14px">
       <div id="mLista">${Object.keys(grupos).sort().map(g => `<div class="mgrupo" data-g="${esc(normTxt(g))}"><h3>${esc(g)}</h3>${grupos[g].sort((a, b) => String(a.modelo).localeCompare(b.modelo)).map(m => `
-        <div class="mitem" data-busca="${esc(normTxt([m.marca, m.modelo, m.tipo, m.titulo].join(' ')))}">
-          <div class="mi">📘</div><div style="flex:1;min-width:0"><b>${esc(m.modelo || m.titulo)}</b><small>${esc(m.tipo)} · ${m.paginas} páginas</small></div>
+        <div class="mitem" data-busca="${esc(normTxt([m.marca, m.modelo, m.tipo, m.titulo, m.palavras].join(' ')))}">
+          <div class="mi">📘</div><div style="flex:1;min-width:0"><b>${esc(m.modelo || m.titulo)}</b><small>${esc(m.tipo)} · ${m.paginas} páginas${m.data ? ' · ' + new Date(m.data).toLocaleDateString('pt-BR', { month:'2-digit', year:'numeric' }) : ''}</small></div>
           <a class="btn sec" href="${esc(m.link)}" target="_blank" rel="noopener">Abrir</a>
           ${adm ? `<button class="btn danger" data-mdel="${m.id}" title="Excluir">🗑</button>` : ''}
         </div>`).join('')}</div>`).join('') || '<div class="empty">Nenhum manual cadastrado ainda.</div>'}</div>`;
@@ -1522,8 +1524,10 @@ function respostaHtml(r) {
   if (r.carregando) return `<div class="card mresp"><div class="mload">✨ Procurando nos manuais...</div></div>`;
   return `<div class="card mresp">
     <div class="mtxt">${mdSimples(r.resposta || '')}</div>
-    ${r.fontes && r.fontes.length ? `<h4>Fontes</h4>${r.fontes.map(f => `<div class="fonte">
-        <div><b>${esc(f.titulo)}</b><small>Página ${f.pagina}</small></div>
+    ${r.fontes && r.fontes.length ? `<h4>Fontes</h4>${r.fontes.map(f => f.tipo === 'msg' ? `<div class="fonte msgf">
+        <div><b>💬 Mensagens do grupo</b><small>A partir de ${esc(f.data || '')} · relato de técnicos, não é manual oficial</small></div>
+        <div class="trecho">${esc(f.trecho || '')}</div></div>` : `<div class="fonte">
+        <div><b>${esc(f.titulo)}</b><small>Página ${f.pagina}${f.data ? ' · documento de ' + esc(f.data) : ''}</small></div>
         <div class="fbtn"><button class="btn sec" data-pag="${f.manualId}|${f.pagina}">👁 Ver página</button>
           <button class="btn sec" data-pagdl="${f.manualId}|${f.pagina}">⬇ Página (PDF)</button>
           <a class="btn ghost" href="${esc(f.link)}" target="_blank" rel="noopener">📘 Manual completo</a></div></div>`).join('')}` : ''}
@@ -1653,7 +1657,7 @@ async function novoManual() {
   };
 }
 async function processarManual(arquivo, meta, prog) {
-  const titulo = [meta.marca, meta.modelo, '—', meta.tipo].filter(Boolean).join(' ');
+  const titulo = meta.titulo || [meta.marca, meta.modelo, '—', meta.tipo].filter(Boolean).join(' ');
   prog('Abrindo o PDF...');
   const buf = await arquivo.arrayBuffer();
   const lib = await pdfjs();
@@ -1706,8 +1710,151 @@ async function processarManual(arquivo, meta, prog) {
     partes.push({ de, ate, id:pid });
   }
   prog('Finalizando...');
-  await Sync.api('manualConcluir', { id, marca:meta.marca, modelo:meta.modelo, tipo:meta.tipo, titulo, paginas:n, arquivoId, partes, indice:textos, semTexto: Math.max(0, semTexto) });
+  await Sync.api('manualConcluir', { id, marca:meta.marca, modelo:meta.modelo, tipo:meta.tipo, titulo, paginas:n, arquivoId, partes, indice:textos, semTexto: Math.max(0, semTexto),
+    hash: meta.hash || await hashArquivo(arquivo), data: meta.data || arquivo.lastModified || Date.now(), palavras: meta.palavras || '', origem: meta.origem || 'manual' });
 }
+// ----- importação do Telegram (exportação JSON do Telegram Desktop) -----
+let tgParar = false;
+const tgTexto = t => Array.isArray(t) ? t.map(x => typeof x === 'string' ? x : (x && x.text) || '').join('') : String(t || '');
+const MODELOS_RE = /\b(x[2-4][ -]?\d{4}[a-z]?|supra[ -]?\d{3,4}\w?|vector[ -]?\d{4}\w?|xarios[ -]?\d{3,4}\w?|citimax[ -]?\d{3}\w?|pulsor[ -]?\d{3,4}\w?|syberia[ -]?\d+\w?|neos[ -]?\d+\w?|viento[ -]?\d+\w?|maxima[ -]?\d+\w?|genesis[ -]?\w+|ultra[ -]?(xl|xtc|\d+)|phoenix[ -]?\w+|prime ?line|thinline|elite ?line|t-?\d{3,4}\w?|sb-?\d{3}\w?|slx?e?[ -]?\d{3,4}\w?|ts-?\d{3}\w?)\b/i;
+const MARCAS_TG = [['thermo king', 'Thermo King'], ['thermoking', 'Thermo King'], ['termo king', 'Thermo King'], ['carrier', 'Carrier'], ['transicold', 'Carrier']];
+async function hashArquivo(f) {
+  const d = await crypto.subtle.digest('SHA-256', await f.arrayBuffer());
+  return [...new Uint8Array(d)].slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function escolherPasta() {
+  return new Promise(res => {
+    const i = document.createElement('input'); i.type = 'file'; i.webkitdirectory = true; i.multiple = true;
+    i.onchange = () => res([...i.files]); i.click();
+  });
+}
+async function importarTelegram() {
+  const arquivos = await escolherPasta(); if (!arquivos.length) return;
+  const jsonF = arquivos.find(f => /(^|\/)result\.json$/.test(f.webkitRelativePath || f.name));
+  if (!jsonF) { await modal({ titulo:'Pasta errada', corpo:'Não encontrei o arquivo <b>result.json</b>. Selecione a pasta criada pela exportação do Telegram (formato <b>JSON</b>).', botoes:[{ label:'OK', valor:1 }] }); return; }
+  const raiz = (jsonF.webkitRelativePath || '').replace(/result\.json$/, '');
+  const porCaminho = new Map(arquivos.map(f => [(f.webkitRelativePath || f.name).slice(raiz.length), f]));
+  toast('Lendo a exportação...');
+  let dados;
+  try { dados = JSON.parse(await jsonF.text()); } catch (e) { toast('Não consegui ler o result.json'); return; }
+  const msgs = (dados.messages || []).filter(m => m.type === 'message');
+  const origem = 'tg:' + (dados.id || dados.name || 'grupo');
+  const nomeGrupo = dados.name || 'Grupo do Telegram';
+  const porId = new Map(msgs.map(m => [m.id, m]));
+  // PDFs com contexto (legenda, mensagem respondida e mensagens anteriores)
+  const pdfs = [];
+  msgs.forEach((m, i) => {
+    const caminho = m.file || '';
+    const nome = m.file_name || caminho.split('/').pop() || '';
+    if (!/\.pdf$/i.test(nome) && m.mime_type !== 'application/pdf') return;
+    const f = porCaminho.get(caminho);
+    if (!f) return;
+    const t = Number(m.date_unixtime) * 1000 || Date.parse(m.date);
+    const ctx = [nome.replace(/[_\-.]+/g, ' '), tgTexto(m.text)];
+    if (m.reply_to_message_id && porId.get(m.reply_to_message_id)) ctx.push(tgTexto(porId.get(m.reply_to_message_id).text));
+    for (let k = i - 1; k >= Math.max(0, i - 3); k--) {
+      const ant = msgs[k], ta = Number(ant.date_unixtime) * 1000 || Date.parse(ant.date);
+      if (t - ta > 2 * 3600e3) break;
+      ctx.push(tgTexto(ant.text));
+    }
+    pdfs.push({ f, nome, t, palavras: ctx.filter(Boolean).join(' · ').replace(/\s+/g, ' ').slice(0, 1500) });
+  });
+  // mensagens úteis (texto com conteúdo)
+  const uteis = msgs.map(m => ({ m, txt: tgTexto(m.text).trim(), t: Number(m.date_unixtime) * 1000 || Date.parse(m.date) }))
+    .filter(x => x.txt.length >= 15 && !/^(ok|obrigad|valeu|bom dia|boa tarde|boa noite|top|show|blz|beleza)\b.{0,15}$/i.test(x.txt));
+  const anos = [...new Set(uteis.map(x => new Date(x.t).getFullYear()))].sort();
+  const semArquivo = msgs.filter(m => m.file && /File not included|not included/i.test(m.file)).length;
+  const r = await modal({ titulo:'Importar do Telegram', corpo:`Grupo: <b>${esc(nomeGrupo)}</b><br><br>
+      📄 <b>${pdfs.length}</b> PDFs encontrados (os repetidos e os já importados serão pulados)<br>
+      💬 <b>${uteis.length}</b> mensagens úteis${anos.length ? ` (${anos[0]} a ${anos[anos.length - 1]})` : ''}<br>
+      ${semArquivo ? `<br>⚠️ ${semArquivo} arquivo(s) não vieram na exportação (limite de tamanho).<br>` : ''}
+      <br><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="tgOcr" style="width:18px;height:18px"> Ler PDFs escaneados com a IA (mais lento e gasta a cota gratuita)</label>
+      <br>A importação pode levar bastante tempo. Deixe esta tela aberta; se parar no meio, é só importar de novo que ela continua de onde parou.`,
+    botoes:[{ label:'Cancelar', cls:'ghost', valor:false }, { label:'Importar', valor:true }] });
+  if (!r) return;
+  const ocr = !!(document.getElementById('tgOcr') || {}).checked;
+  await rodarImportacaoTg({ pdfs, uteis, origem, nomeGrupo, ocr });
+}
+async function rodarImportacaoTg({ pdfs, uteis, origem, nomeGrupo, ocr }) {
+  tgParar = false;
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = `<div class="modal"><h3>Importando do Telegram</h3><div class="mb" id="tgProg">Preparando...</div>
+    <div class="prog" style="margin-top:12px"><i id="tgBar" style="width:0%;background:var(--pri)"></i></div>
+    <div class="mb" id="tgSub" style="font-size:13px;margin-top:8px"></div>
+    <div class="mf"><button class="btn ghost" id="tgStop">Parar</button></div></div>`;
+  document.body.appendChild(bg);
+  const P = t => { const e = bg.querySelector('#tgProg'); if (e) e.innerHTML = t; };
+  const S = t => { const e = bg.querySelector('#tgSub'); if (e) e.textContent = t; };
+  const B = f => { const e = bg.querySelector('#tgBar'); if (e) e.style.width = Math.round(f * 100) + '%'; };
+  bg.querySelector('#tgStop').onclick = () => { tgParar = true; P('Parando depois do arquivo atual...'); };
+  let novos = 0, pulados = 0, erros = 0;
+  try {
+    // 1) mensagens: substitui as anteriores deste grupo (a exportação traz o histórico completo)
+    P('Organizando as mensagens do grupo...');
+    await Sync.api('manualExcluirOrigem', { origem, tipo:'Mensagens do grupo' });
+    const porAno = {};
+    uteis.sort((a, b) => a.t - b.t).forEach(x => (porAno[new Date(x.t).getFullYear()] = porAno[new Date(x.t).getFullYear()] || []).push(x));
+    const fmtD = t => new Date(t).toLocaleDateString('pt-BR');
+    for (const ano of Object.keys(porAno)) {
+      if (tgParar) break;
+      const trechos = [], datas = [], tempos = [];
+      let atual = '', ini = null;
+      porAno[ano].forEach(x => {
+        const autor = x.m.from || 'Técnico';
+        const linha = `[${fmtD(x.t)}] ${autor}: ${x.txt.replace(/\s+/g, ' ')}\n`;
+        if (atual.length + linha.length > 3000 && atual) { trechos.push(atual); datas.push(ini); tempos.push(x.t); atual = ''; ini = null; }
+        if (!ini) ini = fmtD(x.t);
+        atual += linha;
+      });
+      if (atual) { trechos.push(atual); datas.push(ini); tempos.push(porAno[ano][porAno[ano].length - 1].t); }
+      P(`Enviando as mensagens de <b>${ano}</b>...`);
+      const titulo = `Mensagens do grupo ${nomeGrupo} — ${ano}`;
+      const { id } = await Sync.api('manualIniciar', { titulo });
+      await Sync.api('manualConcluir', { id, marca:'Grupo Telegram', modelo:String(ano), tipo:'Mensagens do grupo', titulo, paginas:trechos.length,
+        indice:trechos, datas, tempos, origem, data: porAno[ano][porAno[ano].length - 1].t });
+    }
+    // 2) PDFs: sem repetidos (mesmo conteúdo) e sem os já importados; fica a data mais nova
+    const ja = new Set(((await carregarManuais(true)).manuais || []).map(m => m.hash).filter(Boolean));
+    P('Comparando os arquivos para tirar os repetidos...');
+    const unicos = new Map();
+    for (let i = 0; i < pdfs.length; i++) {
+      if (tgParar) break;
+      if (i % 5 === 0) { S(`${i} de ${pdfs.length} arquivos verificados`); B(i / pdfs.length * 0.1); }
+      const p = pdfs[i];
+      try { p.hash = await hashArquivo(p.f); } catch (e) { continue; }
+      const u = unicos.get(p.hash);
+      if (!u) unicos.set(p.hash, { ...p, todas: [p.palavras] });
+      else { u.todas.push(p.palavras); if (p.t > u.t) { u.t = p.t; u.nome = p.nome; u.f = p.f; } }
+    }
+    const fila = [...unicos.values()].filter(u => !ja.has(u.hash)).sort((a, b) => b.t - a.t);
+    pulados = pdfs.length - fila.length;
+    for (let i = 0; i < fila.length; i++) {
+      if (tgParar) break;
+      const u = fila[i];
+      const palavras = [...new Set(u.todas)].join(' · ').slice(0, 2000);
+      const nTxt = normTxt(palavras + ' ' + u.nome);
+      const marca = (MARCAS_TG.find(([k]) => nTxt.includes(k)) || [, 'Carrier'])[1];
+      const arq = u.nome.replace(/\.pdf$/i, '').replace(/[_]+/g, ' ').trim().slice(0, 60);
+      const mod = (palavras + ' ' + u.nome).match(MODELOS_RE);
+      const modelo = mod ? mod[0].replace(/\s+/g, ' ').toUpperCase().replace(/^(SUPRA|VECTOR|XARIOS|CITIMAX|PULSOR|SYBERIA|NEOS|VIENTO|MAXIMA|GENESIS|ULTRA|PHOENIX|PRIME|TRANSICOLD)/, w => w[0] + w.slice(1).toLowerCase()) + ' — ' + arq : arq;
+      P(`PDF <b>${i + 1}</b> de <b>${fila.length}</b>: ${esc(u.nome)}`);
+      B(0.1 + 0.9 * i / fila.length);
+      try {
+        await processarManual(u.f, { marca, modelo, tipo:'Grupo Telegram', ocr, hash:u.hash, data:u.t, palavras, origem,
+          titulo:`${modelo} (${new Date(u.t).toLocaleDateString('pt-BR', { month:'2-digit', year:'numeric' })})` }, S);
+        novos++;
+      } catch (e) {
+        erros++; S('⚠️ ' + u.nome + ': ' + e.message);
+        if (/limite/i.test(e.message)) { P('Limite da IA atingido. Aguardando 1 minuto...'); await new Promise(r => setTimeout(r, 62000)); i--; continue; }
+      }
+    }
+    B(1);
+  } catch (e) { erros++; S('⚠️ ' + e.message); }
+  manCache = null;
+  P(`${tgParar ? '⏸ Importação pausada.' : '✓ Importação concluída.'}<br><br>📄 ${novos} PDFs novos · ${pulados} repetidos ou já importados${erros ? ` · ${erros} com erro` : ''}<br>💬 Mensagens do grupo atualizadas.`);
+  const bt = bg.querySelector('#tgStop'); bt.textContent = 'Fechar'; bt.className = 'btn'; bt.onclick = () => { bg.remove(); render(); };
+}
+
 async function excluirManual(id) {
   const m = (await carregarManuais()).manuais.find(x => x.id === id); if (!m) return;
   if (!await confirmar('Excluir manual?', `<b>${esc(m.titulo)}</b> sai da biblioteca e da busca da IA. O arquivo vai para a lixeira do Drive.`, 'Excluir', 'danger')) return;
@@ -2352,7 +2499,7 @@ $('#view').addEventListener('click', async e => {
     return instalarAgora();
   }
   if ((el = t.closest('[data-mtab]'))) { manTab = el.dataset.mtab; return render(); }
-  if ((el = t.closest('[data-man]'))) { const a = el.dataset.man; if (a === 'perguntar') return perguntarIA(); if (a === 'novo') return novoManual(); if (a === 'pecas') return importarPecas(); if (a === 'buscaPeca') return buscarPeca(); return; }
+  if ((el = t.closest('[data-man]'))) { const a = el.dataset.man; if (a === 'perguntar') return perguntarIA(); if (a === 'novo') return novoManual(); if (a === 'telegram') return importarTelegram(); if (a === 'pecas') return importarPecas(); if (a === 'buscaPeca') return buscarPeca(); return; }
   if ((el = t.closest('[data-pag]'))) { const [m, p] = el.dataset.pag.split('|'); return verPagina(m, +p); }
   if ((el = t.closest('[data-pagdl]'))) { const [m, p] = el.dataset.pagdl.split('|'); return baixarPagina(m, +p); }
   if ((el = t.closest('[data-mdel]'))) { return excluirManual(el.dataset.mdel); }

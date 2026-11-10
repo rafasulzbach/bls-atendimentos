@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.9.1';
+const VERSAO_API = '2.0';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -132,7 +132,7 @@ function doGet() {
 }
 
 const PUBLICAS = { ping: 1, loginGoogle: 1 };
-const SO_ADMIN = { usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, pecasImportar: 1 };
+const SO_ADMIN = { usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, manualExcluirOrigem: 1, pecasImportar: 1 };
 
 function doPost(e) {
   let r;
@@ -472,7 +472,7 @@ function dt(ms) { return ms ? new Date(ms) : ''; }
 /* =========================================================
    MANUAIS + IA (Gemini, plano gratuito)
    ========================================================= */
-const CAB_MAN = ['ID', 'Marca', 'Modelo', 'Tipo', 'Título', 'Páginas', 'Arquivo', 'Link', 'Partes', 'Índice', 'Enviado por', 'Enviado em', 'Páginas sem texto'];
+const CAB_MAN = ['ID', 'Marca', 'Modelo', 'Tipo', 'Título', 'Páginas', 'Arquivo', 'Link', 'Partes', 'Índice', 'Enviado por', 'Enviado em', 'Páginas sem texto', 'Hash', 'Data do arquivo', 'Palavras-chave', 'Origem'];
 const MODELO_PADRAO = 'gemini-flash-latest';
 const STOP = { de:1, da:1, do:1, das:1, dos:1, em:1, no:1, na:1, nos:1, nas:1, um:1, uma:1, o:1, a:1, os:1, as:1, e:1, ou:1, que:1, qual:1, quais:1, como:1, para:1, por:1, com:1, sem:1, se:1, ao:1, aos:1, eh:1, sao:1, ser:1, esta:1, isso:1, este:1, essa:1, esse:1, onde:1, quando:1, mais:1, menos:1, muito:1, tem:1, ter:1, fazer:1, faz:1, pelo:1, pela:1, meu:1, minha:1, seu:1, sua:1, the:1, of:1, and:1, to:1, in:1, is:1, for:1, on:1, what:1, how:1 };
 const SISTEMA_IA = 'Você é o assistente técnico da Refrigeração BLS (autorizada Carrier Transicold). ' +
@@ -480,6 +480,8 @@ const SISTEMA_IA = 'Você é o assistente técnico da Refrigeração BLS (autori
   'Use SOMENTE as informações dos TRECHOS fornecidos (páginas de manuais e linhas da tabela de peças). ' +
   'Os trechos podem estar em inglês: traduza a resposta para o português, mas mantenha códigos, valores e nomes de peças exatamente como estão. ' +
   'Nunca invente valores, códigos, torques, pressões ou procedimentos. Se os trechos não trouxerem a resposta, diga claramente que não encontrou essa informação nos manuais cadastrados. ' +
+  'Cada trecho traz a data do documento ou da mensagem. Quando houver informações diferentes sobre o mesmo assunto, use a MAIS RECENTE e avise que existe uma informação mais antiga diferente. ' +
+  'Trechos marcados como MENSAGENS DO GRUPO são relatos de técnicos num grupo de Telegram, não documentação oficial: deixe isso claro quando a resposta vier deles (ex.: "segundo técnicos no grupo, em 03/2024..."). ' +
   'Responda em JSON no formato {"resposta": "texto (pode usar **negrito** e listas com - )", "fontes": [números n dos trechos [n] usados], "pecas": [números das linhas P usadas]}.';
 
 function abaManuais() {
@@ -489,6 +491,8 @@ function abaManuais() {
     sh = s.insertSheet('Manuais');
     sh.getRange(1, 1, 1, CAB_MAN.length).setValues([CAB_MAN]).setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < CAB_MAN.length) {
+    sh.getRange(1, 1, 1, CAB_MAN.length).setValues([CAB_MAN]).setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
   }
   return sh;
 }
@@ -549,7 +553,8 @@ function listaManuais() {
   return sh.getRange(2, 1, n, CAB_MAN.length).getValues().map(function (v, i) {
     let partes = []; try { partes = JSON.parse(v[8] || '[]'); } catch (e) {}
     return { linha: i + 2, id: v[0], marca: v[1], modelo: v[2], tipo: v[3], titulo: v[4], paginas: v[5], arquivo: v[6], link: v[7], partes: partes,
-             indice: v[9], por: v[10], em: v[11] ? new Date(v[11]).getTime() : null, semTexto: v[12] || 0 };
+             indice: v[9], por: v[10], em: v[11] ? new Date(v[11]).getTime() : null, semTexto: v[12] || 0,
+             hash: v[13] || '', data: v[14] ? new Date(v[14]).getTime() : null, palavras: v[15] || '', origem: v[16] || '' };
   }).filter(function (m) { return m.id; });
 }
 function lerIndice(m) {
@@ -664,12 +669,16 @@ const ACOES_MANUAIS = {
     const cands = [];
     mans.forEach(function (m) {
       const idx = lerIndice(m); if (!idx) return;
-      const meta = norm([m.marca, m.modelo, m.tipo, m.titulo].join(' '));
+      const meta = norm([m.marca, m.modelo, m.tipo, m.titulo, m.palavras].join(' '));
       const boost = termos.some(function (g) { return g.some(function (t) { return meta.indexOf(t) >= 0; }); }) ? 1.6 : 1;
+      const msg = m.tipo === 'Mensagens do grupo';
       idx.paginas.forEach(function (txt, i) {
         if (!txt) return;
-        const sc = pontuar(norm(txt), termos) * boost;
-        if (sc > 0) cands.push({ m: m, p: i + 1, sc: sc, txt: txt });
+        const dataTrecho = msg && idx.datas ? idx.datas[i] : (m.data ? Utilities.formatDate(new Date(m.data), 'America/Sao_Paulo', 'MM/yyyy') : '');
+        const anoMs = msg && idx.tempos ? idx.tempos[i] : m.data;
+        const recente = anoMs ? 1 + 0.25 * Math.max(0, Math.min(1, (anoMs - Date.UTC(2012, 0, 1)) / (Date.now() - Date.UTC(2012, 0, 1)))) : 1;
+        const sc = pontuar(norm(txt), termos) * boost * recente * (msg ? 0.85 : 1);
+        if (sc > 0) cands.push({ m: m, p: i + 1, sc: sc, txt: txt, data: dataTrecho, msg: msg });
       });
     });
     cands.sort(function (a, b) { return b.sc - a.sc; });
@@ -679,13 +688,19 @@ const ACOES_MANUAIS = {
       return { resposta: 'Não encontrei nada sobre isso nos manuais e na tabela de peças cadastrados. Tente usar outras palavras, o código do alarme ou o modelo do equipamento.', fontes: [], pecas: { cabecalho: [], linhas: [] } };
     }
     let ctx = '';
-    top.forEach(function (c, i) { ctx += '\n[' + (i + 1) + '] ' + c.m.titulo + ' — página ' + c.p + '\n' + String(c.txt).slice(0, 4500) + '\n'; });
+    top.forEach(function (c, i) {
+      ctx += '\n[' + (i + 1) + '] ' + (c.msg ? 'MENSAGENS DO GRUPO (' + c.data + ')' : c.m.titulo + ' — página ' + c.p + (c.data ? ' — documento de ' + c.data : '')) + '\n' + String(c.txt).slice(0, 4500) + '\n';
+    });
     if (pecas.linhas.length) ctx += '\n[TABELA DE PEÇAS] colunas: ' + pecas.cabecalho.join(' | ') + '\n' + pecas.linhas.map(function (l, i) { return 'P' + (i + 1) + ': ' + l.join(' | '); }).join('\n') + '\n';
     const r = gemini([{ text: 'PERGUNTA DO TÉCNICO: ' + pergunta + '\n\nTRECHOS:' + ctx }], SISTEMA_IA);
     const vistos = {};
     const fontes = (r.fontes || []).map(function (n) { return parseInt(String(n).replace(/\D/g, ''), 10); })
       .filter(function (n) { return n >= 1 && n <= top.length && !vistos[n] && (vistos[n] = 1); })
-      .map(function (n) { const c = top[n - 1]; return { manualId: c.m.id, titulo: c.m.titulo, pagina: c.p, link: c.m.link, partes: c.m.partes }; });
+      .map(function (n) {
+        const c = top[n - 1];
+        if (c.msg) return { tipo: 'msg', titulo: c.m.titulo, data: c.data, trecho: String(c.txt).slice(0, 900) };
+        return { manualId: c.m.id, titulo: c.m.titulo, pagina: c.p, link: c.m.link, partes: c.m.partes, data: c.data };
+      });
     const pu = (r.pecas || []).map(function (n) { return parseInt(String(n).replace(/\D/g, ''), 10); })
       .filter(function (n) { return n >= 1 && n <= pecas.linhas.length; });
     return { resposta: String(r.resposta || ''), fontes: fontes, pecas: { cabecalho: pecas.cabecalho, linhas: pu.map(function (n) { return pecas.linhas[n - 1]; }) } };
@@ -729,16 +744,16 @@ const ACOES_MANUAIS = {
   },
   manualConcluir(q, sess) {
     const pasta = pastaManual(q.id);
-    const idx = Utilities.gzip(Utilities.newBlob(JSON.stringify({ paginas: q.indice || [] }), 'application/json'), 'indice.json.gz');
+    const idx = Utilities.gzip(Utilities.newBlob(JSON.stringify({ paginas: q.indice || [], datas: q.datas || null, tempos: q.tempos || null }), 'application/json'), 'indice.json.gz');
     const fi = pasta.createFile(idx);
     let link = '';
-    try {
-      const f = DriveApp.getFileById(q.arquivoId);
-      f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    if (q.arquivoId) {
+      try { DriveApp.getFileById(q.arquivoId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
       link = 'https://drive.google.com/file/d/' + q.arquivoId + '/view';
-    } catch (e) { link = 'https://drive.google.com/file/d/' + q.arquivoId + '/view'; }
-    abaManuais().appendRow([q.id, q.marca || '', q.modelo || '', q.tipo || '', q.titulo || '', q.paginas || 0, q.arquivoId, link,
-      JSON.stringify(q.partes || []), fi.getId(), sess.n, new Date(), q.semTexto || 0]);
+    }
+    abaManuais().appendRow([q.id, q.marca || '', q.modelo || '', q.tipo || '', q.titulo || '', q.paginas || 0, q.arquivoId || '', link,
+      JSON.stringify(q.partes || []), fi.getId(), sess.n, new Date(), q.semTexto || 0,
+      q.hash || '', q.data ? new Date(q.data) : '', String(q.palavras || '').slice(0, 2000), q.origem || '']);
     return { link: link };
   },
   manualExcluir(q) {
@@ -747,6 +762,15 @@ const ACOES_MANUAIS = {
     try { pastaManual(q.id).setTrashed(true); } catch (e) {}
     abaManuais().deleteRow(m.linha);
     return {};
+  },
+  manualExcluirOrigem(q) {
+    const sh = abaManuais();
+    const alvo = listaManuais().filter(function (m) { return m.origem === q.origem && (!q.tipo || m.tipo === q.tipo); });
+    alvo.sort(function (a, b) { return b.linha - a.linha; }).forEach(function (m) {
+      try { pastaManual(m.id).setTrashed(true); } catch (e) {}
+      sh.deleteRow(m.linha);
+    });
+    return { removidos: alvo.length };
   },
   pecasImportar(q) {
     const s = ss();
