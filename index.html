@@ -184,8 +184,10 @@ textarea.inp{min-height:110px;resize:vertical}
 .cfg label{font-weight:600;display:block;margin-bottom:6px}
 .cfg .inp{margin-bottom:14px}
 /* Login */
-.gate{position:fixed;inset:0;z-index:65;background:linear-gradient(160deg,#142269 0%,#1b3596 60%,#2f7cc4 100%);overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 18px}
-.gate>img{width:220px;max-width:70%;margin-bottom:22px}
+.gate{position:fixed;inset:0;z-index:65;background:var(--side);overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 18px}
+.gate>img{width:240px;max-width:72%;display:block}
+.gate .gate-sub{color:#9fb2e0;font-size:12px;letter-spacing:2px;margin:10px 0 28px;text-align:center}
+.gate-box{border-top:4px solid var(--acc)}
 .gate-box{background:#fff;border-radius:18px;max-width:380px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .gate-box h2{margin:0 0 4px;font-size:20px}
 .gate-box p{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.45}
@@ -196,7 +198,7 @@ textarea.inp{min-height:110px;resize:vertical}
 .gate-sep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12.5px;margin:20px 0 14px}
 .gate-sep::before,.gate-sep::after{content:"";flex:1;height:1px;background:var(--line)}
 #gGoogle{display:flex;justify-content:center;min-height:44px}
-.gate-ver{color:#b9c6ec;font-size:12px;margin-top:16px}
+.gate-ver{color:#7f93c9;font-size:12px;margin-top:18px}
 .userbtn{width:36px;height:36px;border-radius:50%;background:var(--side);color:#fff;font-weight:700;font-size:13px;flex-shrink:0}
 .ulist{display:flex;flex-direction:column;gap:8px}
 .urow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;background:#f7f9fc;border-radius:10px}
@@ -296,7 +298,7 @@ textarea.inp{min-height:110px;resize:vertical}
 </div>
 
 <!-- Entrada / login -->
-<div id="gate" class="gate hidden"><img id="gateLogo" alt="BLS Refrigeração"><div class="gate-box" id="gateBody"></div><div class="gate-ver" id="gateVer"></div></div>
+<div id="gate" class="gate hidden"><img id="gateLogo" alt="BLS Refrigeração"><div class="gate-sub">ATENDIMENTOS · CARRIER</div><div class="gate-box" id="gateBody"></div><div class="gate-ver" id="gateVer"></div></div>
 
 <!-- Câmera do app -->
 <div id="cam" class="cam hidden">
@@ -316,9 +318,9 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.4.1';
+const APP_VERSAO = '1.5.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
-const SERVIDOR_PADRAO = null;   // { url:'https://script.google.com/macros/s/.../exec', chave:'...' }
+const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
    Utilidades
    ========================================================= */
