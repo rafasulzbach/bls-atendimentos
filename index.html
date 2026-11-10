@@ -458,7 +458,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.0.1';
+const APP_VERSAO = '2.0.2';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -2113,7 +2113,8 @@ async function vConfig() {
       <h3 style="margin-top:0">Abas de cada categoria</h3>
       <p style="color:var(--muted);margin-top:0">Marque o que cada categoria pode ver. <b>Início</b> e <b>Perfil</b> aparecem para todos. Usuário novo entra como <b>Técnico</b>.</p>
       <div id="permBox"><span style="color:var(--muted)">Carregando...</span></div></div>` : ''}
-    <div class="card" style="max-width:660px;margin-top:14px;color:var(--muted);font-size:14px">Versão do app: <b>${APP_VERSAO}</b></div>`;
+    <div class="card" style="max-width:660px;margin-top:14px;color:var(--muted);font-size:14px">Versão do app: <b>${APP_VERSAO}</b> · Versão do servidor: <b id="verSrv">...</b></div>`;
+  Sync.api('ping').then(r => { const e = $('#verSrv'); if (e) e.textContent = r.versao || '?'; }).catch(() => { const e = $('#verSrv'); if (e) e.textContent = 'sem conexão'; });
   if (Sync.cfg()) { carregarUsuarios(); iaAcao('status'); }
 }
 async function carregarUsuarios() {
