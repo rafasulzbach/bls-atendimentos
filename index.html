@@ -458,7 +458,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.0.2';
+const APP_VERSAO = '2.1.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1466,7 +1466,10 @@ async function carregarManuais(forcar) {
 }
 function tabelaPecas(p) {
   if (!p || !p.linhas || !p.linhas.length) return '';
-  return `<div class="ptab"><table><tr>${p.cabecalho.map(c => `<th>${esc(c)}</th>`).join('')}</tr>${p.linhas.map(l => `<tr>${l.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+  const pref = ['Equipamento', 'Peça', 'Código', 'Descrição'];
+  let idx = pref.map(c => p.cabecalho.indexOf(c));
+  if (idx.some(i => i < 0)) idx = p.cabecalho.map((_, i) => i).filter(i => p.linhas.some(l => !VAZIO_PECA.has(String(l[i] ?? '').trim().toLowerCase())));
+  return `<div class="ptab"><table><tr>${idx.map(i => `<th>${esc(p.cabecalho[i])}</th>`).join('')}</tr>${p.linhas.map(l => `<tr>${idx.map(i => `<td${p.cabecalho[i] === 'Código' ? ' style="font-weight:700;white-space:nowrap"' : ''}>${esc(l[i] ?? '')}</td>`).join('')}</tr>`).join('')}</table></div>`;
 }
 async function vManuais() {
   cab('Manuais', 'Consulta com IA nos manuais e peças');
@@ -1512,7 +1515,7 @@ async function vManuais() {
   } else {
     const p = dados.pecas;
     b.innerHTML = `${adm ? `<div class="card" style="margin-bottom:14px"><h3 style="margin:0 0 6px">Tabela de peças</h3>
-        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">${p ? `${p.linhas} linhas · ${esc(p.arquivo || '')} · atualizada em ${fmtCurto(p.em)}` : 'Nenhuma tabela importada ainda.'} Envie a planilha (.xlsx ou .csv) com os códigos e nomes das peças: a primeira linha deve ter os títulos das colunas. Ao importar, a tabela anterior é substituída.</p>
+        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">${p ? `${p.linhas} linhas · ${esc(p.arquivo || '')} · atualizada em ${fmtCurto(p.em)}` : 'Nenhuma tabela importada ainda.'} Envie a <b>Lista geral de peças</b> (.xlsx). O app reconhece as abas de peças (equipamento × peça) e a lista de obsoletos. Ao importar, a tabela anterior é substituída.</p>
         <div class="btnrow"><button class="btn sec" data-man="pecas">📥 Importar planilha</button></div><div id="pProg" style="margin-top:8px;font-size:14px;color:var(--muted)"></div></div>` : ''}
       <div class="card"><h3 style="margin:0 0 10px">Buscar peça</h3>
         <div class="mq"><input class="inp" id="pBusca" placeholder="Código ou nome da peça" style="flex:1;margin:0" value="${esc(manPecas ? manPecas.busca : '')}"><button class="btn" data-man="buscaPeca">Buscar</button></div>
@@ -1861,6 +1864,65 @@ async function excluirManual(id) {
   if (!await confirmar('Excluir manual?', `<b>${esc(m.titulo)}</b> sai da biblioteca e da busca da IA. O arquivo vai para a lixeira do Drive.`, 'Excluir', 'danger')) return;
   try { await Sync.api('manualExcluir', { id }); manCache = null; toast('Manual excluído'); render(); } catch (e) { toast(e.message); }
 }
+// Converte a "Lista geral de peças" (matriz equipamento × peça, várias abas) em uma linha por peça de cada equipamento
+const VAZIO_PECA = new Set(['', 'na', 'n/a', '-', 'x', 'none', 'null']);
+const limpa = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+function converterPlanilhaPecas(abas) {
+  const nomes = abas.map(a => a.nome);
+  const cab = ['Equipamento', 'Cód. equipamento', 'Categoria', 'Grupo', 'Peça', 'Código', 'Descrição', 'NCM'];
+  const linhas = [], resumo = [];
+  abas.forEach(({ nome, linhas: L }) => {
+    const g = (i, j) => (L[i] && L[i][j] != null ? L[i][j] : '');
+    const r0 = (L[0] || []).map(limpa).map(s => s.toLowerCase());
+    // aba de obsoletos: CÓDIGO | DESCRIÇÃO | ... | CÓDIGO ATUAL (ignora as listas "antigas")
+    const iCod = r0.indexOf('código'), iDesc = r0.indexOf('descrição'), iAtual = r0.indexOf('código atual');
+    if (iCod >= 0 && iDesc >= 0 && iAtual >= 0) {
+      if (/antig/i.test(nome)) { resumo.push(`${nome}: ignorada (lista antiga)`); return; }
+      let n = 0;
+      for (let i = 1; i < L.length; i++) {
+        const cod = limpa(g(i, iCod)); if (!cod) continue;
+        const atual = limpa(g(i, iAtual));
+        linhas.push(['', '', '', 'Obsoleto (' + nome.replace(/obsoletos?\s*(de)?\s*/i, '') + ')', limpa(g(i, iDesc)), cod,
+          atual ? 'OBSOLETO, substituído por ' + atual : 'OBSOLETO, sem substituto indicado', '']);
+        n++;
+      }
+      resumo.push(`${nome}: ${n} códigos obsoletos`); return;
+    }
+    // aba em matriz: linhas de título na coluna B ("Grupos", "Sub grupos", "Peça", "NCM", "Descrição Padrão"); equipamentos logo abaixo
+    const lab = i => limpa(g(i, 1)).toLowerCase();
+    const acha = t => { for (let i = 0; i < Math.min(12, L.length); i++) if (lab(i).startsWith(t)) return i; return -1; };
+    const rGr = acha('grupos'), rSub = acha('sub grupos'), rPeca = acha('peça'), rNcm = acha('ncm'), rDesc = acha('descrição');
+    if (rSub < 0 || rPeca < 0) { resumo.push(`${nome}: ignorada (não é lista de peças)`); return; }
+    const base = nome.replace(/\d+$/, '');
+    if (base !== nome && nomes.includes(base)) { resumo.push(`${nome}: ignorada (cópia de ${base})`); return; }
+    const rDet = rPeca + 1 !== rNcm ? rPeca + 1 : -1;
+    const W = Math.max(...L.map(r => (r || []).length));
+    const grupo = (rGr >= 0 && limpa(g(rGr, 4))) || nome;
+    let sub = '', peca = '';
+    const cols = [];
+    for (let j = 4; j < W; j++) {
+      if (limpa(g(rSub, j))) { sub = limpa(g(rSub, j)); peca = ''; }
+      if (limpa(g(rPeca, j))) peca = limpa(g(rPeca, j));
+      cols.push({ j, rot: [sub, peca, rDet >= 0 ? limpa(g(rDet, j)) : ''].filter(Boolean).join(' › '),
+                  ncm: rNcm >= 0 ? limpa(g(rNcm, j)) : '', desc: rDesc >= 0 ? limpa(String(g(rDesc, j)).split(',')[0]) : '' });
+    }
+    const inicio = Math.max(rNcm, rDesc, rPeca) + 1;
+    let cat = '', n = 0;
+    for (let i = inicio; i < L.length; i++) {
+      if (limpa(g(i, 0))) cat = limpa(g(i, 0));
+      const eq = limpa(g(i, 1)); if (!eq) continue;
+      const ceq = limpa(g(i, 2));
+      cols.forEach(c => {
+        const v = limpa(g(i, c.j));
+        if (VAZIO_PECA.has(v.toLowerCase())) return;
+        linhas.push([eq, ceq, cat, grupo, c.rot, v, c.desc === 'na' ? '' : c.desc, c.ncm === 'na' ? '' : c.ncm]); n++;
+      });
+    }
+    resumo.push(`${nome}: ${n} peças`);
+  });
+  return { cabecalho: cab, linhas, resumo };
+}
+
 async function importarPecas() {
   const f = await escolherArquivo('.xlsx,.xls,.csv'); if (!f) return;
   const pr = t => { const el = $('#pProg'); if (el) el.textContent = t; };
@@ -1868,11 +1930,20 @@ async function importarPecas() {
     pr('Lendo a planilha...');
     const X = await xlsxLib();
     const wb = X.read(await f.arrayBuffer(), { type:'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = X.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' }).filter(r => r.some(c => String(c).trim()));
-    if (rows.length < 2) throw new Error('A planilha está vazia');
-    const cabecalho = rows.shift().map((c, i) => String(c).trim() || 'Coluna ' + (i + 1));
-    if (!await confirmar('Importar tabela de peças?', `<b>${rows.length}</b> linhas e as colunas: ${cabecalho.map(esc).join(', ')}.<br>A tabela atual será substituída.`, 'Importar')) { pr(''); return; }
+    // 1º tenta o formato "Lista geral de peças" (matriz equipamento × peça em várias abas)
+    const abas = wb.SheetNames.map(n => ({ nome:n, linhas: X.utils.sheet_to_json(wb.Sheets[n], { header:1, raw:false, defval:null, blankrows:true }) }));
+    const conv = converterPlanilhaPecas(abas);
+    let cabecalho, rows, detalhe;
+    if (conv.linhas.length) {
+      cabecalho = conv.cabecalho; rows = conv.linhas;
+      detalhe = `Formato reconhecido: <b>lista geral de peças</b> (equipamento × peça).<br><br>${conv.resumo.map(esc).join('<br>')}<br><br>Total: <b>${rows.length}</b> linhas (equipamento · peça · código).`;
+    } else {
+      rows = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, raw:false, defval:'' }).filter(r => r.some(c => String(c).trim()));
+      if (rows.length < 2) throw new Error('A planilha está vazia');
+      cabecalho = rows.shift().map((c, i) => String(c).trim() || 'Coluna ' + (i + 1));
+      detalhe = `<b>${rows.length}</b> linhas e as colunas: ${cabecalho.map(esc).join(', ')}.`;
+    }
+    if (!await confirmar('Importar tabela de peças?', detalhe + '<br>A tabela atual será substituída.', 'Importar')) { pr(''); return; }
     const L = 2000;
     for (let i = 0; i < rows.length; i += L) {
       pr(`Enviando: ${Math.min(i + L, rows.length)} de ${rows.length} linhas...`);

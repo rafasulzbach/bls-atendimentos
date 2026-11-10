@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.1';
+const VERSAO_API = '2.2';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -572,14 +572,27 @@ function buscarPecas(termos, max) {
   if (!grupos.length) return { cabecalho: [], linhas: [] };
   const vals = sh.getDataRange().getDisplayValues();
   const cab = vals.shift();
+  // planilha padrão: as 3 primeiras colunas descrevem o equipamento, o resto a peça
+  const nEq = cab[0] === 'Equipamento' ? 3 : 0;
+  // números de modelo: "7500" também procura "75" (na planilha o X4 7500 aparece como "X4 75")
+  const eqRegs = grupos.map(function (g) {
+    return g.map(function (t) {
+      const alt = /^\d{4}$/.test(t) && /00$/.test(t) ? '|' + t.slice(0, 2) : '';
+      return new RegExp('(^|[^a-z0-9])(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + alt + ')([^a-z0-9]|$)');
+    });
+  });
   const res = [];
   vals.forEach(function (row) {
-    const j = norm(row.join(' | '));
-    let peso = 0, bateu = 0;
-    grupos.forEach(function (g) {
-      if (g.some(function (t) { return j.indexOf(t) >= 0; })) { bateu++; peso += /\d/.test(g[0]) ? 10 : (g[0].length >= 4 ? 2 : 0.5); }
+    const eqTxt = nEq ? norm(row.slice(0, nEq).join(' | ')) : '';
+    const pTxt = norm(row.slice(nEq).join(' | '));
+    let hp = 0, he = 0, peso = 0;
+    grupos.forEach(function (g, gi) {
+      if (g.some(function (t) { return pTxt.indexOf(t) >= 0; })) { hp++; peso += /\d/.test(g[0]) ? 10 : (g[0].length >= 4 ? 2 : 0.5); }
+      else if (nEq && eqRegs[gi].some(function (re) { return re.test(eqTxt); })) { he++; peso += 1; }
     });
-    if (bateu && (grupos.length === 1 || bateu >= 2 || peso >= 10)) res.push({ sc: bateu * 100 + peso, row: row });
+    if (!hp) return;
+    if (grupos.length > 1 && hp + he < 2 && peso < 10) return;
+    res.push({ sc: hp * 100 + he * 60 + peso, row: row });
   });
   res.sort(function (a, b) { return b.sc - a.sc; });
   return { cabecalho: cab, linhas: res.slice(0, max).map(function (r) { return r.row; }) };
