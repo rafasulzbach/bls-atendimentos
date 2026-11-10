@@ -238,8 +238,9 @@ textarea.inp{min-height:110px;resize:vertical}
 .temps{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 12px}
 .temp label{font-size:13.5px}
 .tw{display:flex;gap:6px;align-items:flex-start}
-.tw .pm{flex-shrink:0;width:44px;height:46px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:20px;font-weight:700;color:var(--pri)}
-.tw .pm:active{background:var(--pri-l)}
+.tw .pm{flex-shrink:0;width:44px;height:46px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:24px;font-weight:700;line-height:1}
+.tw .pm.neg{background:var(--pri);border-color:var(--pri);color:#fff}
+.tw .pm.pos{background:#fff7ed;border-color:#f59e0b;color:#c26a00}
 .twi{position:relative;flex:1;min-width:0}
 .twi span{position:absolute;right:12px;top:12px;color:var(--muted);pointer-events:none}
 .twi .inp{padding-right:38px}
@@ -420,7 +421,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.7.2';
+const APP_VERSAO = '1.7.3';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -969,9 +970,9 @@ async function vTesteForm(lista, testes) {
       </div>
       <div class="field"><div class="flabel">Temperaturas</div>
         <div class="temps">${TEMPS.map(([k, l], i) => `<div class="tf temp" data-f="temps.${k}"><label>${l}${i ? ' <span class="req">*</span>' : ''}</label>
-          <div class="tw"><button class="pm" type="button" data-pm="${k}" title="Trocar sinal (positivo/negativo)">±</button>
-            <div class="twi"><input class="inp" type="text" inputmode="decimal" autocomplete="off" data-k="temps.${k}" value="${esc(String(t.temps[k] ?? '').replace('.', ','))}" placeholder="0"><span>°C</span></div></div></div>`).join('')}</div>
-        <p style="margin:2px 0 0;font-size:12.5px;color:var(--muted)">Toque em <b>±</b> para deixar a temperatura negativa.</p>
+          <div class="tw">${botaoSinal(t, k)}
+            <div class="twi"><input class="inp" type="text" inputmode="decimal" autocomplete="off" data-k="temps.${k}" value="${esc(String(t.temps[k] ?? '').replace('-', '').replace('.', ','))}" placeholder="0"><span>°C</span></div></div></div>`).join('')}</div>
+        <p style="margin:2px 0 0;font-size:12.5px;color:var(--muted)">As temperaturas já vêm <b>negativas</b>. Toque no sinal (<b>−</b>/<b>+</b>) para trocar.</p>
         <div class="graf" id="graf">${grafico(t)}</div>
       </div>
       <div class="field"><div class="flabel">Validade do teste (180 dias)</div>
@@ -989,8 +990,12 @@ function testeInput(e) {
   const k = el.dataset.k;
   let v = el.value;
   if (k.startsWith('temps.')) {
-    const limpo = v.replace(/[^0-9,.\-]/g, '').replace(/(?!^)-/g, '');
-    if (limpo !== v) { v = el.value = limpo; }
+    const tk = k.slice(6);
+    if (v.includes('-')) { cur.sinais = cur.sinais || {}; cur.sinais[tk] = '-'; }
+    const dig = v.replace(/[^0-9,.]/g, '');
+    if (dig !== v) el.value = dig;
+    v = dig ? (sinalDe(cur, tk) === '-' ? '-' : '') + dig : '';
+    const bt = document.querySelector(`[data-pm="${tk}"]`); if (bt) bt.outerHTML = botaoSinal(cur, tk);
   }
   if (k === 'placa') { const p = el.selectionStart; v = el.value = v.toUpperCase().replace(/\s/g, ''); try { el.setSelectionRange(p, p); } catch (er) {} }
   setPath(cur, k, v);
@@ -1000,16 +1005,25 @@ function testeInput(e) {
   agendarSalvar();
 }
 $('#view').addEventListener('input', testeInput);
+function sinalDe(t, k) {
+  const v = String((t.temps || {})[k] ?? '');
+  if (v !== '' && v !== '-') return v.startsWith('-') ? '-' : '+';
+  return ((t.sinais || {})[k]) || '-';          // padrão: negativa
+}
+function botaoSinal(t, k) {
+  const neg = sinalDe(t, k) === '-';
+  return `<button class="pm ${neg ? 'neg' : 'pos'}" type="button" data-pm="${k}" title="Trocar para ${neg ? 'positiva' : 'negativa'}">${neg ? '−' : '+'}</button>`;
+}
 function trocarSinal(k) {
   if (!cur || cur.tipo !== 'teste') return;
   const el = document.querySelector(`[data-k="temps.${k}"]`); if (!el) return;
-  let v = el.value.trim();
-  v = v.startsWith('-') ? v.slice(1) : '-' + v;
-  el.value = v; cur.temps[k] = v;
-  const f = el.closest('[data-f]'); if (f) f.classList.remove('erro');
+  cur.sinais = cur.sinais || {};
+  cur.sinais[k] = sinalDe(cur, k) === '-' ? '+' : '-';
+  const dig = el.value.replace(/[^0-9,.]/g, '');
+  cur.temps[k] = dig ? (cur.sinais[k] === '-' ? '-' : '') + dig : '';
+  document.querySelector(`[data-pm="${k}"]`).outerHTML = botaoSinal(cur, k);
   $('#graf').innerHTML = grafico(cur);
   agendarSalvar();
-  if (v === '-') el.focus();
 }
 function marcarBR(el) {
   if (!cur || cur.tipo !== 'teste') return;
