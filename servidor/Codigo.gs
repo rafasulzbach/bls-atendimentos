@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.9';
+const VERSAO_API = '1.9.1';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -115,7 +115,16 @@ function ss() {
 }
 function planilha() { return ss().getSheetByName('Atendimentos'); }
 function abaUsuarios() { return ss().getSheetByName('Usuarios'); }
-function abaTestes() { return ss().getSheetByName('Testes de Frio'); }
+function abaTestes() {
+  const s = ss();
+  let st = s.getSheetByName('Testes de Frio');
+  if (!st) {   // cria sozinha se ainda não existir
+    st = s.insertSheet('Testes de Frio');
+    st.getRange(1, 1, 1, CAB_TESTE.length).setValues([CAB_TESTE]).setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
+    st.setFrozenRows(1);
+  }
+  return st;
+}
 
 /* ---------- Entrada da API ---------- */
 function doGet() {
