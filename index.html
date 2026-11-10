@@ -456,7 +456,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.9.1';
+const APP_VERSAO = '1.9.2';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1996,7 +1996,7 @@ async function iaAcao(a) {
   try {
     if (a === 'testar') { st('Testando...'); await Sync.api('iaTestar'); st('<b style="color:var(--ok)">✓ A IA respondeu. Tudo certo!</b>'); return; }
     const chave = $('#iaChave') ? $('#iaChave').value.replace(/[\s"'`]/g, '') : '';
-    if (a === 'salvar' && chave && !/^AIza[0-9A-Za-z_\-]{30,}$/.test(chave)) { st('<span style="color:var(--red)">Essa não parece uma chave do Gemini: ela começa com <b>AIza</b> e tem 39 caracteres. Copie de novo pelo botão de copiar do AI Studio.</span>'); return; }
+    if (a === 'salvar' && chave && !/^(AIza[0-9A-Za-z_\-]{30,}|AQ\.[0-9A-Za-z_.\-]{30,})$/.test(chave)) { st('<span style="color:var(--red)">Essa não parece uma chave do Gemini (ela começa com <b>AQ.</b> ou <b>AIza</b>). Copie de novo pelo botão <b>Copiar chave</b> do AI Studio.</span>'); return; }
     const dados = a === 'salvar' ? { chave, modelo:$('#iaModelo').value.trim() } : {};
     const r = await Sync.api('iaConfig', dados);
     if ($('#iaModelo') && !$('#iaModelo').value) $('#iaModelo').value = r.modelo;
