@@ -183,8 +183,28 @@ textarea.inp{min-height:110px;resize:vertical}
 .th.lazy img{position:absolute;inset:0}
 .cfg label{font-weight:600;display:block;margin-bottom:6px}
 .cfg .inp{margin-bottom:14px}
+/* Login */
+.gate{position:fixed;inset:0;z-index:65;background:linear-gradient(160deg,#142269 0%,#1b3596 60%,#2f7cc4 100%);overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 18px}
+.gate>img{width:220px;max-width:70%;margin-bottom:22px}
+.gate-box{background:#fff;border-radius:18px;max-width:380px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.gate-box h2{margin:0 0 4px;font-size:20px}
+.gate-box p{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.45}
+.gate-box label{display:block;font-weight:600;font-size:14px;margin-bottom:6px}
+.gate-box .inp{margin-bottom:14px}
+.gate-box .btn{width:100%;padding:13px}
+.gate-msg{color:var(--red);font-size:14px;min-height:20px;margin:-4px 0 10px}
+.gate-sep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12.5px;margin:20px 0 14px}
+.gate-sep::before,.gate-sep::after{content:"";flex:1;height:1px;background:var(--line)}
+#gGoogle{display:flex;justify-content:center;min-height:44px}
+.gate-ver{color:#b9c6ec;font-size:12px;margin-top:16px}
+.userbtn{width:36px;height:36px;border-radius:50%;background:var(--side);color:#fff;font-weight:700;font-size:13px;flex-shrink:0}
+.ulist{display:flex;flex-direction:column;gap:8px}
+.urow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;background:#f7f9fc;border-radius:10px}
+.urow .un{flex:1;min-width:160px}
+.urow .un small{display:block;color:var(--muted);font-size:12.5px}
+.urow .btn{padding:6px 10px;font-size:13px}
 /* Modal / visualizador / toast */
-.modal-bg{position:fixed;inset:0;background:rgba(10,20,40,.55);display:grid;place-items:center;z-index:50;padding:16px}
+.modal-bg{position:fixed;inset:0;background:rgba(10,20,40,.55);display:grid;place-items:center;z-index:90;padding:16px}
 .modal{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .modal h3{margin:0 0 8px}
 .modal .mb{color:var(--muted);line-height:1.5}
@@ -195,7 +215,7 @@ textarea.inp{min-height:110px;resize:vertical}
 .viewer .vt a{color:#fff;text-decoration:none;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px;font-size:14px}
 .viewer .vb{flex:1;display:grid;place-items:center;min-height:0;padding:8px}
 .viewer img,.viewer video{max-width:100%;max-height:100%;object-fit:contain}
-.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;z-index:80;font-size:14.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;z-index:95;font-size:14.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:90vw;text-align:center}
 
 /* Câmera */
 .cam{position:fixed;inset:0;background:#000;z-index:70;display:flex;flex-direction:column;color:#fff}
@@ -221,6 +241,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 /* ---------- Celular ---------- */
 @media (max-width:820px){
+  .userbtn{width:32px;height:32px;font-size:12px}
   .syncinfo{font-size:11.5px;padding:5px 10px}
   .app{flex-direction:column}
   .sidebar{position:fixed;bottom:0;top:auto;left:0;right:0;width:auto;height:auto;padding:6px 6px max(6px,env(safe-area-inset-bottom));z-index:40;flex-direction:row;box-shadow:0 -4px 16px rgba(0,0,0,.15)}
@@ -261,10 +282,13 @@ textarea.inp{min-height:110px;resize:vertical}
     <div class="side-foot">Versão <span id="versao"></span></div>
   </aside>
   <main>
-    <header class="topbar"><img class="toplogo" id="topLogo" alt="BLS"><div><h1 id="titulo">Início</h1><div class="sub" id="subtitulo"></div></div><button id="syncInfo" class="syncinfo"></button></header>
+    <header class="topbar"><img class="toplogo" id="topLogo" alt="BLS"><div><h1 id="titulo">Início</h1><div class="sub" id="subtitulo"></div></div><button id="syncInfo" class="syncinfo"></button><button id="userBtn" class="userbtn hidden" title="Usuário"></button></header>
     <section id="view"></section>
   </main>
 </div>
+
+<!-- Entrada / login -->
+<div id="gate" class="gate hidden"><img id="gateLogo" alt="BLS Refrigeração"><div class="gate-box" id="gateBody"></div><div class="gate-ver" id="gateVer"></div></div>
 
 <!-- Câmera do app -->
 <div id="cam" class="cam hidden">
@@ -284,7 +308,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.2.0';
+const APP_VERSAO = '1.3.0';
 /* =========================================================
    Utilidades
    ========================================================= */
@@ -300,6 +324,13 @@ function norm(a) { if (a) { if (a.os === undefined) a.os = ''; if (!a.observacoe
 const getAtend = async id => norm(await DB.get('atend', id));
 const numTxt = a => a.numero ? '#' + a.numero : '#—';
 const idsMidias = a => [...a.etiqueta, ...a.horimetros, ...a.audios, ...a.midias, ...a.observacoes.flatMap(o => o.fotos)];
+const Sessao = {
+  get() { try { const x = JSON.parse(lsGet('sessao') || 'null'); return x && x.token && x.exp > Date.now() ? x : null; } catch (e) { return null; } },
+  set(x) { lsSet('sessao', JSON.stringify(x)); },
+  sair() { lsSet('sessao', ''); },
+  admin() { const x = this.get(); return !!(x && x.admin); },
+};
+const quem = () => (Sessao.get() || {}).nome || '';
 async function gravar(a) { a.atualizadoEm = Date.now(); a.sujo = true; await DB.put('atend', a); if (window.Sync) Sync.agendar(); }
 const osTag = a => a.os ? `<span class="os-tag">OS ${esc(a.os)}</span>` : '';
 
@@ -565,12 +596,12 @@ async function novoAtendimento() {
   const agora = Date.now();
   const a = {
     id: uid(), numero, criadoEm: agora, atualizadoEm: agora,
-    os: '', tecnico: lsGet('ultimoTecnico') || '', placa: '',
+    os: '', tecnico: Sessao.admin() ? (lsGet('ultimoTecnico') || '') : quem(), placa: '', criadoPor: quem(),
     etiqueta: [], horimetros: [], descricao: '', audios: [], midias: [],
     status: 'pendente', finalizadoEm: null,
     cobranca: { em_espera:null, enviado:null, concluido:null },
     observacoes: [],
-    historico: [{ status:'pendente', em:agora }],
+    historico: [{ status:'pendente', em:agora, por:quem() }],
   };
   await gravar(a);
   go('form', a.id);
@@ -585,6 +616,7 @@ let saveT = 0;
 const filtros = { status:'todos', busca:'', concluidos:false };
 
 async function go(view, id = null) {
+  if (view === 'config' && !Sessao.admin()) { toast('Apenas o administrador acessa os Ajustes.'); return; }
   await flush();
   if (AudioRec.rec) await AudioRec.parar();
   freeUrls(); cur = null;
@@ -687,7 +719,7 @@ async function mudarCobranca(id, s) {
   const idx = COB.indexOf(s);
   COB.slice(idx + 1).forEach(x => a.cobranca[x] = null);   // voltou etapa: limpa as datas seguintes
   a.status = s; a.cobranca[s] = Date.now(); a.atualizadoEm = Date.now();
-  a.historico.push({ status:s, em:a.cobranca[s] });
+  a.historico.push({ status:s, em:a.cobranca[s], por:quem() });
   await gravar(a);
   toast(`${numTxt(a)} marcado como ${ST[s].label}`);
   render();
@@ -816,7 +848,7 @@ async function finalizar() {
   const agora = Date.now();
   Object.assign(cur, { status:'em_espera', finalizadoEm:agora, atualizadoEm:agora });
   cur.cobranca.em_espera = agora;
-  cur.historico.push({ status:'em_espera', em:agora });
+  cur.historico.push({ status:'em_espera', em:agora, por:quem() });
   await gravar(cur);
   toast('Atendimento finalizado ✓');
   go('detalhe', cur.id);
@@ -868,7 +900,7 @@ async function vDetalhe() {
   if (obsDraft.id !== a.id) { obsDraft = { id:a.id, texto:'', fotos:[] }; }
   const obsHtml = (await Promise.all(a.observacoes.slice().reverse().map(async o => {
     const fs = await carregarMidias(o.fotos);
-    return `<div class="obs-item"><div class="oh"><span>📝 ${fmtCurto(o.em)}</span><button data-delobs="${o.id}">Excluir</button></div>
+    return `<div class="obs-item"><div class="oh"><span>📝 ${fmtCurto(o.em)}${o.por ? ' · ' + esc(o.por) : ''}</span><button data-delobs="${o.id}">Excluir</button></div>
       ${o.texto ? `<div class="ot">${esc(o.texto)}</div>` : ''}${fs.length ? `<div class="thumbs">${fs.map(m => thumb(m, false, 'observacoes')).join('')}</div>` : ''}</div>`;
   }))).join('');
   const draftHtml = obsDraft.fotos.map((f, i) => `<div class="th"><img src="${mkUrl(f.blob)}" alt=""><button class="del" data-deldraft="${i}" title="Remover">✕</button></div>`).join('');
@@ -882,6 +914,8 @@ async function vDetalhe() {
         <div><span class="lbl">Técnico</span><b>${esc(a.tecnico)}</b></div>
         <div><span class="lbl">Aberto em</span><b>${fmtCurto(a.criadoEm)}</b></div>
         <div><span class="lbl">Finalizado em</span><b>${fmtCurto(a.finalizadoEm)}</b></div>
+        <div><span class="lbl">Criado por</span><b>${esc(a.criadoPor || '—')}</b></div>
+        <div><span class="lbl">Última alteração</span><b>${esc(a.alteradoPor || '—')}</b><small style="color:var(--muted);display:block;font-size:12px">${fmtCurto(a.atualizadoEm)}</small></div>
         <div><span class="lbl">Arquivos</span><b>${a.pasta ? `<a href="${esc(a.pasta)}" target="_blank" rel="noopener" style="color:var(--pri)">📁 Abrir pasta no Drive</a>` : '—'}</b></div>
       </div>
       <div class="det-sec" style="margin-top:20px"><h3>Cobrança</h3>${segCob(a)}</div>
@@ -903,7 +937,7 @@ async function vDetalhe() {
           <button class="btn" data-obs="salvar" style="margin-left:auto">Salvar observação</button>
         </div>
       </div></div>
-    <div class="card det-sec"><h3>Histórico</h3><div class="timeline">${a.historico.map(h => `<div>${pill(h.status)} ${fmtCurto(h.em)}</div>`).join('')}</div></div>`;
+    <div class="card det-sec"><h3>Histórico</h3><div class="timeline">${a.historico.map(h => `<div>${pill(h.status)} ${fmtCurto(h.em)}${h.por ? ' · ' + esc(h.por) : ''}</div>`).join('')}</div></div>`;
   const dOS = $('#detOS');
   dOS.oninput = () => {
     $('#osInfo').textContent = '';
@@ -934,7 +968,7 @@ async function obsAcao(acao) {
       const m = { id:uid(), atendId:id, campo:'observacoes', tipo:'foto', blob:f.blob, mime:f.blob.type || 'image/jpeg', criadoEm:Date.now(), local:f.local };
       await DB.put('midia', m); fotos.push(m.id);
     }
-    a.observacoes.push({ id:uid(), texto, fotos, em:Date.now() });
+    a.observacoes.push({ id:uid(), texto, fotos, em:Date.now(), por:quem() });
     await gravar(a);
     obsDraft = { id, texto:'', fotos:[] };
     toast('Observação salva'); freeUrls(); render();
@@ -986,10 +1020,14 @@ const Sync = {
   cfg() { try { const c = JSON.parse(lsGet('cfg') || 'null'); return c && c.url && c.chave ? c : null; } catch (e) { return null; } },
   async api(acao, dados = {}, cfg = this.cfg()) {
     let r;
-    try { r = await fetch(cfg.url, { method:'POST', body: JSON.stringify({ ...dados, acao, chave:cfg.chave }) }); }
+    const sess = Sessao.get();
+    try { r = await fetch(cfg.url, { method:'POST', body: JSON.stringify({ ...dados, acao, chave:cfg.chave, token: sess ? sess.token : undefined }) }); }
     catch (e) { throw new Error('Sem conexão com o servidor'); }
     let j; try { j = await r.json(); } catch (e) { throw new Error('Resposta inválida do servidor (confira a URL e se a implantação está como "Qualquer pessoa")'); }
-    if (!j.ok) throw new Error(j.erro || 'Erro no servidor');
+    if (!j.ok) {
+      if (j.sessao && sess) { Sessao.sair(); mostrarGate('login', j.erro); }
+      throw new Error(j.erro || 'Erro no servidor');
+    }
     return j;
   },
   status(tipo, txt, dica = '') {
@@ -1001,7 +1039,8 @@ const Sync = {
   async qtdPendentes() { return (await DB.all('atend')).filter(a => a.sujo).length; },
   async rodar() {
     clearTimeout(this.t);
-    if (!this.cfg()) { this.status('local', '⚠ Sem nuvem', 'Toque para configurar'); return; }
+    if (!this.cfg()) { this.status('local', '⚠ Sem nuvem', 'Aparelho não conectado'); return; }
+    if (!Sessao.get()) return;
     if (this.rodando) { this.denovo = true; return; }
     if (!navigator.onLine) { const n = await this.qtdPendentes(); this.status('offline', `📴 Sem internet${n ? ' · ' + n + ' a enviar' : ''}`); return; }
     this.rodando = true; this.mudou = false;
@@ -1150,7 +1189,32 @@ async function vConfig() {
       <p style="color:var(--muted);margin-top:0">Envie este link pelo WhatsApp. Ao abrir no celular, o app já fica conectado, sem digitar nada.</p>
       <input class="inp" id="cfgLink" readonly value="${esc(linkConfig())}">
       <div class="btnrow"><button class="btn sec" data-cfg="copiar">📋 Copiar link</button></div></div>` : ''}
+    ${Sync.cfg() ? `<div class="card cfg" style="max-width:660px;margin-top:14px">
+      <h3 style="margin-top:0">Usuários</h3>
+      <p style="color:var(--muted);margin-top:0">Cada técnico cria a própria senha no primeiro acesso. Aqui você bloqueia ou redefine a senha (a pessoa cria uma nova no próximo login).</p>
+      <div class="ulist" id="usuList"><span style="color:var(--muted)">Carregando...</span></div></div>` : ''}
     <div class="card" style="max-width:660px;margin-top:14px;color:var(--muted);font-size:14px">Versão do app: <b>${APP_VERSAO}</b></div>`;
+  if (Sync.cfg()) carregarUsuarios();
+}
+async function carregarUsuarios() {
+  const el = $('#usuList'); if (!el) return;
+  try {
+    const { usuarios } = await Sync.api('usuarios');
+    if (!$('#usuList')) return;
+    el.innerHTML = usuarios.length ? usuarios.map(u => `<div class="urow">
+      <div class="un"><b>${esc(u.nome)}</b> <span style="color:var(--muted)">(${esc(u.usuario)})</span>
+        <small>${u.ativo ? '' : '<b style="color:var(--red)">Bloqueado</b> · '}Último acesso: ${u.ultimoAcesso ? fmtCurto(u.ultimoAcesso) : '—'}</small></div>
+      <button class="btn ghost" data-usu="${esc(u.usuario)}" data-op="resetar">Redefinir senha</button>
+      <button class="btn ${u.ativo ? 'danger' : 'sec'}" data-usu="${esc(u.usuario)}" data-op="${u.ativo ? 'bloquear' : 'desbloquear'}">${u.ativo ? 'Bloquear' : 'Desbloquear'}</button>
+    </div>`).join('') : '<span style="color:var(--muted)">Nenhum técnico cadastrado ainda.</span>';
+  } catch (e) { el.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
+}
+async function usuarioAcao(usuario, op) {
+  const txt = { resetar:['Redefinir senha?', `<b>${esc(usuario)}</b> vai criar uma senha nova no próximo login.`, 'Redefinir'],
+                bloquear:['Bloquear usuário?', `<b>${esc(usuario)}</b> não conseguirá mais entrar nem enviar atendimentos.`, 'Bloquear'],
+                desbloquear:['Desbloquear usuário?', `<b>${esc(usuario)}</b> poderá entrar novamente.`, 'Desbloquear'] }[op];
+  if (!await confirmar(txt[0], txt[1], txt[2], op === 'bloquear' ? 'danger' : '')) return;
+  try { await Sync.api('usuarioAcao', { usuario, op }); toast('Feito ✓'); carregarUsuarios(); } catch (e) { toast(e.message); }
 }
 async function cfgAcao(acao) {
   if (acao === 'salvar') {
@@ -1162,7 +1226,7 @@ async function cfgAcao(acao) {
     await Sync.rodar(); toast(Sync.estado.txt);
   } else if (acao === 'sair') {
     if (!await confirmar('Desconectar da nuvem?', 'Este aparelho deixa de enviar e receber atendimentos. Nada é apagado do Drive.', 'Desconectar', 'danger')) return;
-    lsSet('cfg', ''); lsSet('ultimoPull', '0'); await Sync.rodar(); render();
+    lsSet('cfg', ''); lsSet('ultimoPull', '0'); Sessao.sair(); mostrarGate('conectar');
   } else if (acao === 'copiar') {
     const i = $('#cfgLink'); i.select();
     try { await navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); }
@@ -1189,6 +1253,7 @@ async function conectar(c) {
     }
   }
   toast('Conectado à nuvem ✓');
+  if (!Sessao.get()) { mostrarGate('login'); return true; }
   await Sync.rodar(); freeUrls(); render();
   return true;
 }
@@ -1198,7 +1263,124 @@ async function configPorLink() {
   let d; try { d = JSON.parse(atob(decodeURIComponent(m[1]))); } catch (e) { toast('Link de configuração inválido'); return; }
   if (await confirmar('Conectar este aparelho?', 'Este link conecta o app à nuvem da BLS Refrigeração, para enviar os atendimentos ao Drive.', 'Conectar')) await conectar({ url:d.u, chave:d.k });
 }
-$('#syncInfo').onclick = () => Sync.cfg() ? Sync.rodar() : go('config');
+$('#syncInfo').onclick = () => Sync.rodar();
+
+/* ---------- Entrada (login) ---------- */
+function gateMsg(t) { const m = $('#gMsg'); if (m) m.textContent = t || ''; }
+function gateCarregando(btn, sim) { if (!btn) return; btn.disabled = sim; if (sim) { btn.dataset.t = btn.textContent; btn.textContent = 'Aguarde...'; } else if (btn.dataset.t) btn.textContent = btn.dataset.t; }
+function mostrarGate(modo, aviso = '') {
+  modo = modo || (!Sync.cfg() ? 'conectar' : 'login');
+  $('#gate').classList.remove('hidden');
+  $('#gateLogo').src = $('#logoImg').src;
+  $('#gateVer').textContent = 'Versão ' + APP_VERSAO;
+  const b = $('#gateBody');
+  if (modo === 'conectar') {
+    b.innerHTML = `<h2>Conectar aparelho</h2>
+      <p>Abra o link de conexão enviado pelo administrador ou informe os dados abaixo.</p>
+      <label>URL do servidor</label><input class="inp" id="gUrl" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
+      <label>Chave de acesso</label><input class="inp" id="gChave" autocomplete="off">
+      <div class="gate-msg" id="gMsg">${esc(aviso)}</div>
+      <button class="btn" id="gConectar">Conectar</button>`;
+    $('#gConectar').onclick = async e => {
+      const url = $('#gUrl').value.trim(), chave = $('#gChave').value.trim();
+      if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url) || !chave) { gateMsg('Informe a URL (https://script.google.com/...) e a chave.'); return; }
+      gateCarregando(e.target, true); await conectar({ url, chave }); gateCarregando(e.target, false);
+    };
+  } else if (modo === 'login') {
+    b.innerHTML = `<h2>Entrar</h2>
+      <p>Primeiro acesso? Digite o usuário que quer usar e crie sua senha.</p>
+      <label>Usuário</label><input class="inp" id="gUsu" autocomplete="username" autocapitalize="none" value="${esc(lsGet('ultimoUsuario') || '')}">
+      <label>Senha</label><input class="inp" id="gSenha" type="password" autocomplete="current-password">
+      <div class="gate-msg" id="gMsg">${esc(aviso)}</div>
+      <button class="btn" id="gEntrar">Entrar</button>
+      <div class="gate-sep">Administrador</div>
+      <div id="gGoogle"><small style="color:var(--muted)">Carregando...</small></div>`;
+    const entrar = () => fazerLogin($('#gEntrar'));
+    $('#gEntrar').onclick = entrar;
+    $('#gSenha').onkeydown = e => { if (e.key === 'Enter') entrar(); };
+    $('#gUsu').onkeydown = e => { if (e.key === 'Enter') $('#gSenha').focus(); };
+    prepararGoogle();
+  }
+}
+async function fazerLogin(btn) {
+  const usuario = $('#gUsu').value.trim().toLowerCase(), senha = $('#gSenha').value;
+  if (!usuario || !senha) { gateMsg('Informe usuário e senha.'); return; }
+  gateMsg(''); gateCarregando(btn, true);
+  try {
+    const r = await Sync.api('login', { usuario, senha });
+    if (r.novo) return mostrarCriar(usuario, senha, r.reset);
+    entrouCom(r.sessao);
+  } catch (e) { gateMsg(e.message); }
+  finally { gateCarregando(btn, false); }
+}
+function mostrarCriar(usuario, senha, reset) {
+  $('#gateBody').innerHTML = `<h2>${reset ? 'Criar nova senha' : 'Primeiro acesso'}</h2>
+    <p>${reset ? 'Sua senha foi redefinida pelo administrador.' : 'O usuário'} <b>${esc(usuario)}</b> ${reset ? '— crie uma senha nova.' : 'ainda não existe. Confirme seus dados para criar o acesso.'}</p>
+    <label>Seu nome <small style="font-weight:400;color:var(--muted)">(aparece nos atendimentos)</small></label><input class="inp" id="gNome" autocomplete="name">
+    <label>Senha</label><input class="inp" id="gS1" type="password" autocomplete="new-password" value="${esc(senha)}">
+    <label>Confirme a senha</label><input class="inp" id="gS2" type="password" autocomplete="new-password">
+    <div class="gate-msg" id="gMsg"></div>
+    <button class="btn" id="gCriar">Criar e entrar</button>
+    <button class="btn ghost" id="gVoltar" style="margin-top:8px">Voltar</button>`;
+  $('#gNome').focus();
+  $('#gVoltar').onclick = () => mostrarGate('login');
+  $('#gCriar').onclick = async e => {
+    const nome = $('#gNome').value.trim(), s1 = $('#gS1').value, s2 = $('#gS2').value;
+    if (!nome) { gateMsg('Informe seu nome.'); return; }
+    if (s1.length < 4) { gateMsg('A senha precisa ter pelo menos 4 caracteres.'); return; }
+    if (s1 !== s2) { gateMsg('As senhas não conferem.'); return; }
+    gateCarregando(e.target, true);
+    try { const r = await Sync.api('cadastrar', { usuario, nome, senha:s1 }); entrouCom(r.sessao); }
+    catch (err) { gateMsg(err.message); }
+    finally { gateCarregando(e.target, false); }
+  };
+}
+function carregarScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) return window.google && google.accounts ? res() : setTimeout(res, 800);
+    const sc = document.createElement('script'); sc.src = src; sc.async = true; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc);
+  });
+}
+async function prepararGoogle() {
+  const el = $('#gGoogle'); if (!el) return;
+  let cid = lsGet('googleClientId') || '';
+  try { cid = (await Sync.api('ping')).googleClientId || ''; lsSet('googleClientId', cid); } catch (e) {}
+  if (!$('#gGoogle')) return;
+  if (!cid) { el.innerHTML = '<small style="color:var(--muted)">Login do administrador ainda não configurado.</small>'; return; }
+  try {
+    await carregarScript('https://accounts.google.com/gsi/client');
+    google.accounts.id.initialize({ client_id:cid, callback: async r => {
+      gateMsg('Verificando...');
+      try { const x = await Sync.api('loginGoogle', { credencial:r.credential }); entrouCom(x.sessao); }
+      catch (e) { gateMsg(e.message); }
+    } });
+    el.innerHTML = '';
+    google.accounts.id.renderButton(el, { theme:'outline', size:'large', text:'signin_with', locale:'pt-BR', shape:'pill', width:300 });
+  } catch (e) { el.innerHTML = '<small style="color:var(--muted)">Sem conexão com o Google.</small>'; }
+}
+function entrouCom(sessao) {
+  Sessao.set(sessao);
+  if (!sessao.admin) lsSet('ultimoUsuario', sessao.usuario);
+  $('#gate').classList.add('hidden');
+  aplicarPerfil();
+  toast('Olá, ' + sessao.nome + '!');
+  go('inicio');
+  Sync.rodar();
+}
+function aplicarPerfil() {
+  const s = Sessao.get();
+  document.querySelector('[data-nav="config"]').classList.toggle('hidden', !(s && s.admin));
+  const ub = $('#userBtn');
+  ub.classList.toggle('hidden', !s);
+  if (s) { ub.textContent = s.nome.split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase(); ub.title = s.nome; }
+}
+$('#userBtn').onclick = async () => {
+  const s = Sessao.get(); if (!s) return;
+  const r = await modal({ titulo: esc(s.nome), corpo: `${s.admin ? 'Administrador · ' : 'Usuário: '}${esc(s.usuario)}`,
+    botoes: [{ label:'Fechar', cls:'ghost', valor:false }, { label:'Sair', cls:'danger', valor:true }] });
+  if (!r) return;
+  await flush(); Sessao.sair(); aplicarPerfil(); mostrarGate('login');
+};
 
 /* =========================================================
    Cliques (delegação)
@@ -1211,6 +1393,7 @@ $('#view').addEventListener('click', async e => {
   if ((el = t.closest('[data-delobs]'))) { return excluirObs(el.dataset.delobs); }
   if ((el = t.closest('[data-obs]'))) { return obsAcao(el.dataset.obs); }
   if ((el = t.closest('[data-cfg]'))) { return cfgAcao(el.dataset.cfg); }
+  if ((el = t.closest('[data-usu]'))) { return usuarioAcao(el.dataset.usu, el.dataset.op); }
   if ((el = t.closest('[data-cob]')))  { return mudarCobranca(el.closest('[data-id]').dataset.id, el.dataset.cob); }
   if ((el = t.closest('[data-ver]')))  { return verMidia(el.dataset.ver); }
   if ((el = t.closest('[data-cam]')))  { return abrirCamera(el.dataset.cam); }
@@ -1252,6 +1435,8 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sav
     $('#topLogo').src = $('#logoImg').src;
     await DB.open();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    aplicarPerfil();
+    if (!Sync.cfg() || !Sessao.get()) mostrarGate();
     await render();
     await configPorLink();
     Sync.rodar();

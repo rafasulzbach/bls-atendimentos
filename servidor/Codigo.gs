@@ -3,20 +3,24 @@
  *
  * Guarda os dados numa planilha Google e as fotos/vídeos/áudios numa pasta do Drive.
  *
- * COMO INSTALAR (uma vez só):
- *   1) script.google.com → Novo projeto → apague o que estiver lá e cole este código → Salvar
- *   2) No topo, escolha a função "configurar" e clique em Executar → autorize com a sua conta Google
- *   3) Implantar → Nova implantação → tipo "App da Web"
- *        Executar como: Eu   ·   Quem pode acessar: Qualquer pessoa   → Implantar
- *   4) Copie a URL do App da Web e a CHAVE DE ACESSO (aparece no "Registro de execução")
- *      e cole no app, em Configurações.
+ * COMO INSTALAR / ATUALIZAR:
+ *   1) script.google.com → projeto "BLS Atendimentos" → apague tudo, cole este código → Salvar
+ *   2) Cole o ID do cliente Google em GOOGLE_CLIENT_ID (logo abaixo)
+ *   3) Escolha a função "configurar" e clique em Executar (autorize se pedir)
+ *   4) Implantar → Gerenciar implantações → ✏ Editar → Versão: "Nova versão" → Implantar
+ *      (a URL continua a mesma)
  */
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
-const VERSAO_API = '1.0';
+const GOOGLE_CLIENT_ID = 'COLE_AQUI_O_ID_DO_CLIENTE.apps.googleusercontent.com';
+const VERSAO_API = '1.1';
+
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
-             'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído', 'Servidor', 'JSON'];
+             'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
+             'Criado por', 'Alterado por', 'Servidor', 'JSON'];
+const CAB_USU = ['Usuário', 'Nome', 'Ativo', 'Criado em', 'Último acesso', 'Hash', 'Salt'];
 const STATUS = { pendente: 'Pendente', em_espera: 'Em espera', enviado: 'Enviado', concluido: 'Concluído' };
+const DIAS = 24 * 60 * 60 * 1000;
 
 function props() { return PropertiesService.getScriptProperties(); }
 
@@ -31,17 +35,39 @@ function configurar() {
   } else {
     ss = SpreadsheetApp.create('BLS Atendimentos - Dados');
     DriveApp.getFileById(ss.getId()).moveTo(pasta);
-    const sh = ss.getSheets()[0];
-    sh.setName('Atendimentos');
-    sh.getRange(1, 1, 1, CAB.length).setValues([CAB])
-      .setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
-    sh.setFrozenRows(1);
+    ss.getSheets()[0].setName('Atendimentos');
     p.setProperty('PLANILHA_ID', ss.getId());
   }
-  pastaAtendimentos();
-  if (!p.getProperty('CHAVE')) {
-    p.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, '').slice(0, 16).toUpperCase());
+  // aba de atendimentos (com migração de colunas, se necessário)
+  let sh = ss.getSheetByName('Atendimentos') || ss.insertSheet('Atendimentos');
+  const cabAtual = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
+  if (cabAtual.join('|') !== CAB.join('|')) {
+    const n = sh.getLastRow() - 1;
+    const jsons = [];
+    if (n > 0 && cabAtual.length) {
+      const col = cabAtual.indexOf('JSON') + 1;
+      if (col > 0) sh.getRange(2, col, n, 1).getValues().forEach(function (v) { try { jsons.push(JSON.parse(v[0])); } catch (e) {} });
+      sh.getRange(2, 1, n, sh.getLastColumn()).clearContent();
+    }
+    sh.getRange(1, 1, 1, Math.max(CAB.length, cabAtual.length)).clearContent();
+    sh.getRange(1, 1, 1, CAB.length).setValues([CAB]);
+    jsons.forEach(function (a, i) { sh.getRange(i + 2, 1, 1, CAB.length).setValues([linhaDe(a)]); });
   }
+  sh.getRange(1, 1, 1, CAB.length).setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
+  sh.setFrozenRows(1);
+  // aba de usuários
+  let su = ss.getSheetByName('Usuarios');
+  if (!su) {
+    su = ss.insertSheet('Usuarios');
+    su.getRange(1, 1, 1, CAB_USU.length).setValues([CAB_USU])
+      .setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
+    su.setFrozenRows(1);
+    su.hideColumns(6, 2);
+  }
+  pastaAtendimentos();
+  if (!p.getProperty('CHAVE')) p.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, '').slice(0, 16).toUpperCase());
+  if (!p.getProperty('SEGREDO')) p.setProperty('SEGREDO', Utilities.getUuid() + Utilities.getUuid());
+  p.setProperty('ADMIN_EMAIL', Session.getEffectiveUser().getEmail().toLowerCase());
   // pede a autorização usada para enviar vídeos grandes ao Drive
   UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/about?fields=user',
     { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
@@ -49,6 +75,8 @@ function configurar() {
   Logger.log('✅ Tudo pronto!');
   Logger.log('Planilha: ' + ss.getUrl());
   Logger.log('CHAVE DE ACESSO: ' + p.getProperty('CHAVE'));
+  Logger.log('Administrador (login Google): ' + p.getProperty('ADMIN_EMAIL'));
+  if (GOOGLE_CLIENT_ID.indexOf('COLE_AQUI') === 0) Logger.log('⚠ Falta colar o GOOGLE_CLIENT_ID no topo do código.');
 }
 
 function pastaAtendimentos() {
@@ -60,16 +88,21 @@ function pastaAtendimentos() {
   return f;
 }
 
-function planilha() {
+function ss() {
   const id = props().getProperty('PLANILHA_ID');
   if (!id) throw new Error('Servidor não configurado: execute a função "configurar".');
-  return SpreadsheetApp.openById(id).getSheetByName('Atendimentos');
+  return SpreadsheetApp.openById(id);
 }
+function planilha() { return ss().getSheetByName('Atendimentos'); }
+function abaUsuarios() { return ss().getSheetByName('Usuarios'); }
 
 /* ---------- Entrada da API ---------- */
 function doGet() {
   return ContentService.createTextOutput('BLS Atendimentos API ' + VERSAO_API + ' — funcionando.');
 }
+
+const PUBLICAS = { ping: 1, login: 1, cadastrar: 1, loginGoogle: 1 };
+const SO_ADMIN = { usuarios: 1, usuarioAcao: 1 };
 
 function doPost(e) {
   let r;
@@ -78,19 +111,126 @@ function doPost(e) {
     if (!q.chave || q.chave !== props().getProperty('CHAVE')) throw new Error('Chave de acesso inválida');
     const f = ACOES[q.acao];
     if (!f) throw new Error('Ação desconhecida: ' + q.acao);
-    r = f(q) || {};
+    let sess = null;
+    if (!PUBLICAS[q.acao]) {
+      sess = validarToken(q.token);
+      if (SO_ADMIN[q.acao] && !sess.adm) throw new Error('Apenas o administrador pode fazer isso');
+    }
+    r = f(q, sess) || {};
     r.ok = true;
   } catch (err) {
-    r = { ok: false, erro: String((err && err.message) || err) };
+    const msg = String((err && err.message) || err);
+    r = { ok: false, erro: msg.replace(/^SESSAO:\s*/, ''), sessao: msg.indexOf('SESSAO:') === 0 };
   }
   return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);
 }
 
+/* ---------- Login ---------- */
+function b64u(bytes) { return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, ''); }
+function assinar(payload) {
+  const corpo = b64u(Utilities.newBlob(JSON.stringify(payload)).getBytes());
+  const sig = b64u(Utilities.computeHmacSha256Signature(corpo, props().getProperty('SEGREDO')));
+  return corpo + '.' + sig;
+}
+function validarToken(tok) {
+  if (!tok) throw new Error('SESSAO: Faça login novamente');
+  const partes = String(tok).split('.');
+  const sig = b64u(Utilities.computeHmacSha256Signature(partes[0], props().getProperty('SEGREDO')));
+  if (sig !== partes[1]) throw new Error('SESSAO: Sessão inválida, faça login novamente');
+  const p = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(partes[0])).getDataAsString());
+  if (p.exp < Date.now()) throw new Error('SESSAO: Sessão expirada, faça login novamente');
+  if (!p.adm) {
+    const u = acharUsuario(p.u);
+    if (!u || u.ativo !== 'Sim') throw new Error('SESSAO: Usuário bloqueado');
+  }
+  return p;
+}
+function sessaoDe(usuario, nome, adm) {
+  const exp = Date.now() + (adm ? 30 : 365) * DIAS;
+  return { token: assinar({ u: usuario, n: nome, adm: !!adm, exp: exp }), usuario: usuario, nome: nome, admin: !!adm, exp: exp };
+}
+function hashSenha(senha, salt) {
+  return b64u(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + '|' + senha, Utilities.Charset.UTF_8));
+}
+function chaveUsuario(u) { return String(u || '').trim().toLowerCase(); }
+function acharUsuario(u) {
+  const su = abaUsuarios(), n = su.getLastRow() - 1, k = chaveUsuario(u);
+  if (n < 1) return null;
+  const vals = su.getRange(2, 1, n, CAB_USU.length).getValues();
+  for (let i = 0; i < vals.length; i++) {
+    if (vals[i][0] === k) return { linha: i + 2, usuario: vals[i][0], nome: vals[i][1], ativo: vals[i][2], hash: vals[i][5], salt: vals[i][6] };
+  }
+  return null;
+}
+
+/* ---------- Ações ---------- */
 const ACOES = {
-  ping() { return { versao: VERSAO_API, agora: Date.now() }; },
+  ping() { return { versao: VERSAO_API, agora: Date.now(), googleClientId: GOOGLE_CLIENT_ID.indexOf('COLE_AQUI') === 0 ? '' : GOOGLE_CLIENT_ID }; },
+
+  login(q) {
+    const u = acharUsuario(q.usuario);
+    if (!u || !u.hash) return { novo: true, reset: !!u };
+    if (u.ativo !== 'Sim') throw new Error('Usuário bloqueado. Fale com o administrador.');
+    if (hashSenha(q.senha, u.salt) !== u.hash) throw new Error('Senha incorreta');
+    abaUsuarios().getRange(u.linha, 5).setValue(new Date());
+    return { sessao: sessaoDe(u.usuario, u.nome, false) };
+  },
+
+  cadastrar(q) {
+    const lock = LockService.getScriptLock(); lock.waitLock(30000);
+    try {
+      const k = chaveUsuario(q.usuario);
+      if (!/^[a-z0-9._-]{3,30}$/.test(k)) throw new Error('Usuário deve ter de 3 a 30 letras/números, sem espaços');
+      if (String(q.senha || '').length < 4) throw new Error('A senha precisa ter pelo menos 4 caracteres');
+      const nome = String(q.nome || q.usuario).trim().slice(0, 60);
+      const salt = Utilities.getUuid();
+      const hash = hashSenha(q.senha, salt);
+      const u = acharUsuario(k);
+      const su = abaUsuarios();
+      if (u && u.hash) throw new Error('Este usuário já existe');
+      if (u) {
+        if (u.ativo !== 'Sim') throw new Error('Usuário bloqueado. Fale com o administrador.');
+        su.getRange(u.linha, 2).setValue(nome);
+        su.getRange(u.linha, 5, 1, 3).setValues([[new Date(), hash, salt]]);
+      } else {
+        su.appendRow([k, nome, 'Sim', new Date(), new Date(), hash, salt]);
+      }
+      return { sessao: sessaoDe(k, nome, false) };
+    } finally { lock.releaseLock(); }
+  },
+
+  loginGoogle(q) {
+    if (GOOGLE_CLIENT_ID.indexOf('COLE_AQUI') === 0) throw new Error('Login Google ainda não configurado no servidor');
+    const r = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(q.credencial), { muteHttpExceptions: true });
+    if (r.getResponseCode() !== 200) throw new Error('Login Google inválido');
+    const t = JSON.parse(r.getContentText());
+    const email = String(t.email || '').toLowerCase();
+    if (t.aud !== GOOGLE_CLIENT_ID || String(t.email_verified) !== 'true') throw new Error('Login Google inválido');
+    if (email !== props().getProperty('ADMIN_EMAIL')) throw new Error('Esta conta Google não é a do administrador');
+    return { sessao: sessaoDe(email, t.given_name || t.name || 'Administrador', true) };
+  },
+
+  usuarios() {
+    const su = abaUsuarios(), n = su.getLastRow() - 1;
+    if (n < 1) return { usuarios: [] };
+    return { usuarios: su.getRange(2, 1, n, 5).getValues().map(function (v) {
+      return { usuario: v[0], nome: v[1], ativo: v[2] === 'Sim', criadoEm: v[3] ? new Date(v[3]).getTime() : null, ultimoAcesso: v[4] ? new Date(v[4]).getTime() : null };
+    }) };
+  },
+
+  usuarioAcao(q) {
+    const u = acharUsuario(q.usuario); if (!u) throw new Error('Usuário não encontrado');
+    const su = abaUsuarios();
+    if (q.op === 'bloquear') su.getRange(u.linha, 3).setValue('Não');
+    else if (q.op === 'desbloquear') su.getRange(u.linha, 3).setValue('Sim');
+    else if (q.op === 'resetar') su.getRange(u.linha, 6, 1, 2).setValues([['', '']]);
+    else if (q.op === 'excluir') su.deleteRow(u.linha);
+    else throw new Error('Operação inválida');
+    return {};
+  },
 
   // Grava/atualiza um atendimento (vale a versão alterada por último)
-  salvar(q) {
+  salvar(q, sess) {
     const lock = LockService.getScriptLock();
     lock.waitLock(30000);
     try {
@@ -103,6 +243,8 @@ const ACOES = {
       if (atual && (atual.atualizadoEm || 0) > (a.atualizadoEm || 0)) return { atend: atual };
 
       a.numero = atual && atual.numero ? atual.numero : proximoNumero(sh);
+      a.criadoPor = (atual && atual.criadoPor) || a.criadoPor || sess.n;
+      a.alteradoPor = sess.n;
       const pasta = pastaDo(a);
       a.pastaId = pasta.getId();
       a.pasta = pasta.getUrl();
@@ -112,12 +254,7 @@ const ACOES = {
       delete a.sujo;
       a.servidorEm = Date.now();
 
-      const c = a.cobranca || {};
-      const linha = [
-        a.id, a.numero, a.excluido ? 'Excluído' : (STATUS[a.status] || a.status), a.os || '', a.placa || '', a.tecnico || '',
-        dt(a.criadoEm), dt(a.finalizadoEm), dt(c.em_espera), dt(c.enviado), dt(c.concluido), dt(a.atualizadoEm),
-        a.pasta, a.excluido ? 'Sim' : '', a.servidorEm, JSON.stringify(a),
-      ];
+      const linha = linhaDe(a);
       if (lin) sh.getRange(lin, 1, 1, linha.length).setValues([linha]);
       else sh.appendRow(linha);
       return { atend: a };
@@ -204,6 +341,15 @@ const ACOES = {
 };
 
 /* ---------- Auxiliares ---------- */
+function linhaDe(a) {
+  const c = a.cobranca || {};
+  return [
+    a.id, a.numero, a.excluido ? 'Excluído' : (STATUS[a.status] || a.status), a.os || '', a.placa || '', a.tecnico || '',
+    dt(a.criadoEm), dt(a.finalizadoEm), dt(c.em_espera), dt(c.enviado), dt(c.concluido), dt(a.atualizadoEm),
+    a.pasta || '', a.excluido ? 'Sim' : '', a.criadoPor || '', a.alteradoPor || '', a.servidorEm || 0, JSON.stringify(a),
+  ];
+}
+
 function acharLinha(sh, id) {
   const n = sh.getLastRow() - 1;
   if (n < 1) return 0;
