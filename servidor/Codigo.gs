@@ -562,6 +562,13 @@ function buscarPecas(termos, max) {
   res.sort(function (a, b) { return b.sc - a.sc; });
   return { cabecalho: cab, linhas: res.slice(0, max).map(function (r) { return r.row; }) };
 }
+function motivoErro(txt) {
+  try {
+    const e = JSON.parse(txt).error;
+    const motivos = (e.details || []).map(function (d) { return d.reason || ''; }).filter(String).join(',');
+    return e.message + (motivos ? ' [' + motivos + ']' : '') + (e.status ? ' {' + e.status + '}' : '');
+  } catch (x) { return String(txt).slice(0, 200); }
+}
 function gemini(parts, sistema) {
   const p = props();
   const key = p.getProperty('GEMINI_KEY');
@@ -572,13 +579,15 @@ function gemini(parts, sistema) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent';
   // 1ª tentativa: chave no cabeçalho; se o Google recusar a chave, tenta de novo com a chave na URL (formato aceito pelas chaves novas "AQ.")
   let r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true });
+  let detalhe2 = '';
   if (r.getResponseCode() === 400 || r.getResponseCode() === 401 || r.getResponseCode() === 403) {
     const r2 = UrlFetchApp.fetch(url + '?key=' + encodeURIComponent(key), { method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true });
     if (r2.getResponseCode() === 200 || r2.getResponseCode() === 429) r = r2;
+    else detalhe2 = ' | 2ª tentativa (' + r2.getResponseCode() + '): ' + motivoErro(r2.getContentText());
   }
   const code = r.getResponseCode(), txt = r.getContentText();
   if (code === 429) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.');
-  if (code !== 200) { let m = ''; try { m = JSON.parse(txt).error.message; } catch (e) { m = txt.slice(0, 200); } throw new Error('Erro da IA (' + code + '): ' + m); }
+  if (code !== 200) throw new Error('Erro da IA (' + code + '): ' + motivoErro(txt) + detalhe2);
   const j = JSON.parse(txt);
   const c = j.candidates && j.candidates[0];
   const out = c && c.content && c.content.parts ? c.content.parts.map(function (x) { return x.text || ''; }).join('') : '';

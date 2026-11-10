@@ -456,7 +456,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.9.3';
+const APP_VERSAO = '1.9.4';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1958,7 +1958,7 @@ async function vConfig() {
     <div class="card cfg" style="max-width:660px;margin-top:14px">
       <h3 style="margin-top:0">IA dos manuais (Gemini)</h3>
       <p style="color:var(--muted);margin-top:0">Chave gratuita criada no Google AI Studio. Ela fica guardada só no seu servidor do Google.</p>
-      <label>Chave da API</label><input class="inp" id="iaChave" type="password" autocomplete="off" placeholder="Cole a chave aqui (começa com AIza...)">
+      <label>Chave da API</label><input class="inp" id="iaChave" type="password" autocomplete="off" placeholder="Cole a chave aqui (começa com AQ. ou AIza)">
       <label>Modelo</label><input class="inp" id="iaModelo" autocomplete="off" placeholder="gemini-flash-latest">
       <div class="btnrow"><button class="btn" data-ia="salvar">Salvar</button><button class="btn sec" data-ia="testar">Testar a IA</button></div>
       <div id="iaStatus" style="margin-top:10px;font-size:14px;color:var(--muted)">Carregando...</div></div>
@@ -1994,7 +1994,14 @@ async function carregarUsuarios() {
 async function iaAcao(a) {
   const st = t => { const el = $('#iaStatus'); if (el) el.innerHTML = t; };
   try {
-    if (a === 'testar') { st('Testando...'); await Sync.api('iaTestar'); st('<b style="color:var(--ok)">✓ A IA respondeu. Tudo certo!</b>'); return; }
+    if (a === 'testar') {
+      st('Testando...');
+      let info = '';
+      try { const c = await Sync.api('iaConfig', {}); info = c.temChave ? `Chave salva: começa com <b>${esc(c.inicio || '?')}</b>, termina em <b>${esc(c.final)}</b>, ${c.tamanho || '?'} caracteres · modelo <b>${esc(c.modelo)}</b><br>` : 'Nenhuma chave salva.<br>'; } catch (e) {}
+      try { await Sync.api('iaTestar'); st(info + '<b style="color:var(--ok)">✓ A IA respondeu. Tudo certo!</b>'); }
+      catch (e) { st(info + `<span style="color:var(--red)">${esc(e.message)}</span>`); }
+      return;
+    }
     const chave = $('#iaChave') ? $('#iaChave').value.replace(/[\s"'`]/g, '') : '';
     if (a === 'salvar' && chave && !/^(AIza[0-9A-Za-z_\-]{30,}|AQ\.[0-9A-Za-z_.\-]{30,})$/.test(chave)) { st('<span style="color:var(--red)">Essa não parece uma chave do Gemini (ela começa com <b>AQ.</b> ou <b>AIza</b>). Copie de novo pelo botão <b>Copiar chave</b> do AI Studio.</span>'); return; }
     const dados = a === 'salvar' ? { chave, modelo:$('#iaModelo').value.trim() } : {};
