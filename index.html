@@ -316,7 +316,9 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.4.0';
+const APP_VERSAO = '1.4.1';
+// Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
+const SERVIDOR_PADRAO = null;   // { url:'https://script.google.com/macros/s/.../exec', chave:'...' }
 /* =========================================================
    Utilidades
    ========================================================= */
@@ -1026,7 +1028,7 @@ function nomeArquivo(m) {
 
 const Sync = {
   rodando:false, denovo:false, t:0, mudou:false, estado:{ tipo:'', txt:'', dica:'' },
-  cfg() { try { const c = JSON.parse(lsGet('cfg') || 'null'); return c && c.url && c.chave ? c : null; } catch (e) { return null; } },
+  cfg() { try { const c = JSON.parse(lsGet('cfg') || 'null'); if (c && c.url && c.chave) return c; } catch (e) {} return SERVIDOR_PADRAO; },
   async api(acao, dados = {}, cfg = this.cfg()) {
     let r;
     const sess = Sessao.get();
@@ -1348,12 +1350,14 @@ function mostrarGate(modo, aviso = '') {
   if (modo === 'conectar') {
     b.innerHTML = `<h2>Conectar aparelho</h2>
       <p>Abra o link de conexão enviado pelo administrador ou informe os dados abaixo.</p>
-      <label>URL do servidor</label><input class="inp" id="gUrl" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
+      <label>URL do servidor <small style="font-weight:400;color:var(--muted)">(ou cole o link de conexão inteiro)</small></label><input class="inp" id="gUrl" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
       <label>Chave de acesso</label><input class="inp" id="gChave" autocomplete="off">
       <div class="gate-msg" id="gMsg">${esc(aviso)}</div>
       <button class="btn" id="gConectar">Conectar</button>`;
     $('#gConectar').onclick = async e => {
-      const url = $('#gUrl').value.trim(), chave = $('#gChave').value.trim();
+      let url = $('#gUrl').value.trim(), chave = $('#gChave').value.trim();
+      const lk = url.match(/[?#]cfg=([^&#\s]+)/);
+      if (lk) { try { const d = JSON.parse(atob(decodeURIComponent(lk[1]))); url = d.u; chave = d.k; } catch (err) {} }
       if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url) || !chave) { gateMsg('Informe a URL (https://script.google.com/...) e a chave.'); return; }
       gateCarregando(e.target, true); await conectar({ url, chave }); gateCarregando(e.target, false);
     };
