@@ -1,7 +1,7 @@
 // Service worker do app BLS Atendimentos.
 // Estratégia "rede primeiro": com internet, sempre carrega a versão mais nova do site;
 // sem internet, abre a última versão guardada. Altere VERSAO a cada publicação.
-const VERSAO = '1.6.0';
+const VERSAO = '1.6.1';
 const CACHE = 'bls-atend-' + VERSAO;
 const ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 

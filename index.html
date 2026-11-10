@@ -385,7 +385,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.6.0';
+const APP_VERSAO = '1.6.1';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -848,10 +848,14 @@ function grafico(t, { w = 640, h = 340, cor = '#1f45b5' } = {}) {
   }
   const pts = TEMPS.map(([k, , hh]) => [hh, numT(t.temps[k])]).filter(p => p[1] !== null)
     .map(([hh, v]) => [hh, Math.max(ymin, Math.min(ymax, v)), v]);
-  if (pts.length > 1) g += `<polyline points="${pts.map(p => x(p[0]) + ',' + y(p[1])).join(' ')}" fill="none" stroke="${cor}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (pts.length > 1) g += `<polyline points="${pts.map(p => x(p[0]) + ',' + y(p[1])).join(' ')}" fill="none" stroke="${cor}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`;
   pts.forEach(p => {
-    g += `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="5.5" fill="#46aadc" stroke="${cor}" stroke-width="2.5"/>`
-       + `<text x="${x(p[0]) + (p[0] === 0 ? 9 : p[0] === 3 ? -9 : 0)}" y="${y(p[1]) - 11}" text-anchor="${p[0] === 0 ? 'start' : p[0] === 3 ? 'end' : 'middle'}" font-size="12.5" font-weight="700" fill="#14213d">${String(p[2]).replace('.', ',')}°C</text>`;
+    const tx = x(p[0]) + (p[0] === 0 ? 12 : p[0] === 3 ? -12 : 0), anc = p[0] === 0 ? 'start' : p[0] === 3 ? 'end' : 'middle';
+    const ty = p[1] > ymax - 6 ? y(p[1]) + 26 : y(p[1]) - 14;
+    g += `<line x1="${x(p[0])}" x2="${x(p[0])}" y1="${y(p[1])}" y2="${T + H}" stroke="${cor}" stroke-width="1.2" stroke-dasharray="4 4" opacity=".45"/>`
+       + `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="8" fill="#fff" stroke="${cor}" stroke-width="3.5"/>`
+       + `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="3.5" fill="${cor}"/>`
+       + `<text x="${tx}" y="${ty}" text-anchor="${anc}" font-size="17" font-weight="800" fill="${cor}" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">${String(p[2]).replace('.', ',')}°C</text>`;
   });
   if (!pts.length) g += `<text x="${L + W / 2}" y="${T + H / 2}" text-anchor="middle" font-size="13" fill="#9aa6b8">Informe as temperaturas para gerar o gráfico</text>`;
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="display:block;max-width:${w}px;margin:0 auto" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Roboto,Arial,sans-serif">${g}</svg>`;
@@ -1039,7 +1043,7 @@ async function imprimirTeste() {
       <tr><td colspan="3">Número de série do equipamento: <b>${esc(t.serie)}</b></td></tr>
     </table>
     <div class="pt-graf"><div class="pt-gt">Temperatura</div>${grafico(t, { w:620, h:330, cor:'#142269' })}
-      <div class="pt-temps">${TEMPS.filter(([k]) => numT(t.temps[k]) !== null).map(([k, l]) => `${l.replace(' (opcional)', '').replace('Temp. em ', '')}: <b>${fmtT(t.temps[k])}</b>`).join(' &nbsp;·&nbsp; ')}</div></div>
+</div>
     <div class="pt-val"><b>VALIDADE DO TESTE (180 DIAS):</b> ${VALIDADE_TXT}${v ? `<br><b>Válido até: ${v.toLocaleDateString('pt-BR')}</b>` : ''}</div>`;
   const tit = document.title;
   document.title = `Teste de frio ${t.placa} ${fmtDataISO(t.data).replace(/\//g, '-')}`;
