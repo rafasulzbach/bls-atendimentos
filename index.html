@@ -308,7 +308,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.3.2';
+const APP_VERSAO = '1.3.3';
 /* =========================================================
    Utilidades
    ========================================================= */
@@ -1168,7 +1168,7 @@ function carregarPendentes() {
 }
 
 /* ---------- Ajustes ---------- */
-function linkConfig() { const c = Sync.cfg(); return location.origin + location.pathname + '#cfg=' + encodeURIComponent(btoa(JSON.stringify({ u:c.url, k:c.chave }))); }
+function linkConfig() { const c = Sync.cfg(); return location.origin + location.pathname + '?cfg=' + encodeURIComponent(btoa(JSON.stringify({ u:c.url, k:c.chave }))); }
 async function vConfig() {
   cab('Ajustes', 'Conexão com o Google Drive');
   const c = Sync.cfg() || { url:'', chave:'' };
@@ -1262,10 +1262,18 @@ async function conectar(c) {
   return true;
 }
 async function configPorLink() {
-  const m = location.hash.match(/#cfg=([^&]+)/); if (!m) return;
+  const q = new URLSearchParams(location.search).get('cfg');
+  const m = location.hash.match(/#cfg=([^&]+)/);
+  const bruto = q || (m && decodeURIComponent(m[1]));
+  if (!bruto) return;
   history.replaceState(null, '', location.pathname);
-  let d; try { d = JSON.parse(atob(decodeURIComponent(m[1]))); } catch (e) { toast('Link de configuração inválido'); return; }
-  if (await confirmar('Conectar este aparelho?', 'Este link conecta o app à nuvem da BLS Refrigeração, para enviar os atendimentos ao Drive.', 'Conectar')) await conectar({ url:d.u, chave:d.k });
+  let d;
+  try { d = JSON.parse(atob(bruto.trim())); if (!d.u || !d.k) throw 0; }
+  catch (e) { mostrarGate('conectar', 'Link de conexão inválido. Peça um novo ao administrador.'); return; }
+  const at = Sync.cfg();
+  if (at && at.url === d.u && at.chave === d.k) return;          // já conectado
+  mostrarGate('conectando');
+  if (!await conectar({ url:d.u, chave:d.k })) mostrarGate('conectar', 'Não foi possível conectar pelo link. Verifique a internet e tente abrir o link de novo.');
 }
 $('#syncInfo').onclick = () => Sync.rodar();
 
@@ -1296,6 +1304,8 @@ function mostrarGate(modo, aviso = '') {
       <div class="gate-msg" id="gMsg">${esc(aviso)}</div>
       <div id="gGoogle"><small style="color:var(--muted)">Carregando...</small></div>`;
     prepararGoogle();
+  } else if (modo === 'conectando') {
+    b.innerHTML = `<h2>Conectando...</h2><p>Ligando este aparelho à nuvem da BLS Refrigeração. Aguarde alguns segundos.</p>`;
   } else if (modo === 'pendente') {
     b.innerHTML = `<h2>Aguardando liberação</h2>
       <p>${aviso}</p>
@@ -1417,8 +1427,8 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sav
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     aplicarPerfil();
     if (!Sync.cfg() || !Sessao.get()) mostrarGate();
-    await render();
     await configPorLink();
+    await render();
     Sync.rodar();
     if (Sessao.admin()) verificarPendentes();
     setInterval(() => { if (!document.hidden) Sync.rodar(); }, 60 * 1000);
