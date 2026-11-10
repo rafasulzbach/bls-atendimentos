@@ -456,7 +456,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.9.4';
+const APP_VERSAO = '1.9.5';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1958,7 +1958,7 @@ async function vConfig() {
     <div class="card cfg" style="max-width:660px;margin-top:14px">
       <h3 style="margin-top:0">IA dos manuais (Gemini)</h3>
       <p style="color:var(--muted);margin-top:0">Chave gratuita criada no Google AI Studio. Ela fica guardada só no seu servidor do Google.</p>
-      <label>Chave da API</label><input class="inp" id="iaChave" type="password" autocomplete="off" placeholder="Cole a chave aqui (começa com AQ. ou AIza)">
+      <label>Chave da API</label><input class="inp" id="iaChave" type="text" name="gemini-api-key-nao-preencher" autocomplete="off" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" style="-webkit-text-security:disc" placeholder="Cole aqui a chave do Gemini (começa com AQ.)">
       <label>Modelo</label><input class="inp" id="iaModelo" autocomplete="off" placeholder="gemini-flash-latest">
       <div class="btnrow"><button class="btn" data-ia="salvar">Salvar</button><button class="btn sec" data-ia="testar">Testar a IA</button></div>
       <div id="iaStatus" style="margin-top:10px;font-size:14px;color:var(--muted)">Carregando...</div></div>
