@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.4';
+const VERSAO_API = '1.5';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -23,8 +23,8 @@ const CAB_TESTE = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Data do teste', 'Avali
              'Vedação', 'Aspecto geral', 'Providências câmara', 'Temp. inicial', 'Temp. 1h', 'Temp. 2h', 'Temp. 3h',
              'Válido até', 'Criado por', 'Alterado por', 'Excluído', 'Servidor', 'JSON'];
 const CAB_USU = ['E-mail', 'Nome (Google)', 'Situação', 'Criado em', 'Último acesso', 'Categoria', 'Nome no app'];
-const ABAS = ['atendimentos', 'cobranca', 'teste'];                       // abas que podem ser liberadas
-const PERM_PADRAO = { tecnico: ['atendimentos', 'teste'], geral: ['atendimentos', 'cobranca', 'teste'] };
+const ABAS = ['atendimentos', 'cobranca', 'teste', 'manuais'];                       // abas que podem ser liberadas
+const PERM_PADRAO = { tecnico: ['atendimentos', 'teste', 'manuais'], geral: ['atendimentos', 'cobranca', 'teste', 'manuais'], v2: true };
 const STATUS = { pendente: 'Pendente', em_espera: 'Em espera', enviado: 'Enviado', concluido: 'Concluído' };
 const DIAS = 24 * 60 * 60 * 1000;
 
@@ -84,6 +84,7 @@ function configurar() {
     r.setValues(v.map(function (x) { return [x[0] || 'Técnico']; }));
   }
   pastaAtendimentos();
+  abaManuais(); pastaManuais();
   if (!p.getProperty('CHAVE')) p.setProperty('CHAVE', Utilities.getUuid().replace(/-/g, '').slice(0, 16).toUpperCase());
   if (!p.getProperty('SEGREDO')) p.setProperty('SEGREDO', Utilities.getUuid() + Utilities.getUuid());
   p.setProperty('ADMIN_EMAIL', Session.getEffectiveUser().getEmail().toLowerCase());
@@ -122,7 +123,7 @@ function doGet() {
 }
 
 const PUBLICAS = { ping: 1, loginGoogle: 1 };
-const SO_ADMIN = { usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1 };
+const SO_ADMIN = { usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, pecasImportar: 1 };
 
 function doPost(e) {
   let r;
@@ -175,7 +176,13 @@ function sessaoDe(usuario, nome, adm) {
   return { token: assinar({ u: usuario, n: nome, adm: !!adm, exp: exp }), usuario: usuario, nome: nome, admin: !!adm, exp: exp };
 }
 function permissoes() {
-  try { const p = JSON.parse(props().getProperty('PERMISSOES') || 'null'); if (p && p.tecnico && p.geral) return p; } catch (e) {}
+  try {
+    const p = JSON.parse(props().getProperty('PERMISSOES') || 'null');
+    if (p && p.tecnico && p.geral) {
+      if (!p.v2) { p.tecnico.push('manuais'); p.geral.push('manuais'); p.v2 = true; props().setProperty('PERMISSOES', JSON.stringify(p)); }
+      return p;
+    }
+  } catch (e) {}
   return PERM_PADRAO;
 }
 function chaveUsuario(u) { return String(u || '').trim().toLowerCase(); }
@@ -240,7 +247,7 @@ const ACOES = {
 
   salvarPermissoes(q) {
     const limpa = function (l) { return (l || []).filter(function (a) { return ABAS.indexOf(a) >= 0; }); };
-    const perm = { tecnico: limpa(q.permissoes && q.permissoes.tecnico), geral: limpa(q.permissoes && q.permissoes.geral) };
+    const perm = { tecnico: limpa(q.permissoes && q.permissoes.tecnico), geral: limpa(q.permissoes && q.permissoes.geral), v2: true };
     props().setProperty('PERMISSOES', JSON.stringify(perm));
     return { permissoes: perm };
   },
@@ -333,9 +340,13 @@ const ACOES = {
   },
 
   // Recebe foto/vídeo/áudio (em partes de até 4 MB) e grava na pasta do atendimento
-  upload(q) {
+  upload(q, sess) {
     const bytes = Utilities.base64Decode(q.data);
-    const pasta = pastaDo({ id: q.atendId });
+    let pasta;
+    if (q.destino && String(q.destino).indexOf('manual:') === 0) {
+      if (!sess.adm) throw new Error('Apenas o administrador pode enviar manuais');
+      pasta = pastaManual(String(q.destino).slice(7));
+    } else pasta = pastaDo({ id: q.atendId });
     if (!q.sessao && q.offset === 0 && bytes.length >= q.tamanho) {
       const f = pasta.createFile(Utilities.newBlob(bytes, q.mime, q.nome));
       return { fim: true, driveId: f.getId() };
@@ -448,3 +459,239 @@ function nomePasta(a) {
 }
 
 function dt(ms) { return ms ? new Date(ms) : ''; }
+
+/* =========================================================
+   MANUAIS + IA (Gemini, plano gratuito)
+   ========================================================= */
+const CAB_MAN = ['ID', 'Marca', 'Modelo', 'Tipo', 'Título', 'Páginas', 'Arquivo', 'Link', 'Partes', 'Índice', 'Enviado por', 'Enviado em', 'Páginas sem texto'];
+const MODELO_PADRAO = 'gemini-flash-latest';
+const STOP = { de:1, da:1, do:1, das:1, dos:1, em:1, no:1, na:1, nos:1, nas:1, um:1, uma:1, o:1, a:1, os:1, as:1, e:1, ou:1, que:1, qual:1, quais:1, como:1, para:1, por:1, com:1, sem:1, se:1, ao:1, aos:1, eh:1, sao:1, ser:1, esta:1, isso:1, este:1, essa:1, esse:1, onde:1, quando:1, mais:1, menos:1, muito:1, tem:1, ter:1, fazer:1, faz:1, pelo:1, pela:1, meu:1, minha:1, seu:1, sua:1, the:1, of:1, and:1, to:1, in:1, is:1, for:1, on:1, what:1, how:1 };
+const SISTEMA_IA = 'Você é o assistente técnico da Refrigeração BLS (autorizada Carrier Transicold). ' +
+  'Responda em português do Brasil, de forma direta e prática para um técnico de campo. ' +
+  'Use SOMENTE as informações dos TRECHOS fornecidos (páginas de manuais e linhas da tabela de peças). ' +
+  'Os trechos podem estar em inglês: traduza a resposta para o português, mas mantenha códigos, valores e nomes de peças exatamente como estão. ' +
+  'Nunca invente valores, códigos, torques, pressões ou procedimentos. Se os trechos não trouxerem a resposta, diga claramente que não encontrou essa informação nos manuais cadastrados. ' +
+  'Responda em JSON no formato {"resposta": "texto (pode usar **negrito** e listas com - )", "fontes": [números n dos trechos [n] usados], "pecas": [números das linhas P usadas]}.';
+
+function abaManuais() {
+  const s = ss();
+  let sh = s.getSheetByName('Manuais');
+  if (!sh) {
+    sh = s.insertSheet('Manuais');
+    sh.getRange(1, 1, 1, CAB_MAN.length).setValues([CAB_MAN]).setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function abaPecas() { return ss().getSheetByName('Peças'); }
+function pastaManuais() {
+  const p = props();
+  const id = p.getProperty('PASTA_MANUAIS');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  const f = DriveApp.getFolderById(PASTA_ID).createFolder('Manuais');
+  p.setProperty('PASTA_MANUAIS', f.getId());
+  return f;
+}
+function pastaManual(id) {
+  const fid = props().getProperty('M_' + id);
+  if (!fid) throw new Error('Manual não encontrado');
+  return DriveApp.getFolderById(fid);
+}
+function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+const SINONIMOS = {
+  alarme: ['alarm'], alarmes: ['alarm'], codigo: ['code'], pressao: ['pressure'], succao: ['suction'], descarga: ['discharge'],
+  temperatura: ['temperature', 'temp'], oleo: ['oil'], filtro: ['filter'], correia: ['belt'], ventilador: ['fan'], valvula: ['valve'],
+  fusivel: ['fuse'], bateria: ['battery'], motor: ['engine', 'motor'], degelo: ['defrost'], evaporador: ['evaporator'],
+  condensador: ['condenser'], troca: ['change', 'replace'], trocar: ['change', 'replace'], intervalo: ['interval'], nivel: ['level'],
+  partida: ['start', 'starter'], desligamento: ['shutdown'], aquecimento: ['heat', 'heating'], resfriamento: ['cool', 'cooling'],
+  refrigerante: ['refrigerant'], gas: ['refrigerant'], carga: ['charge'], vazamento: ['leak'], sensor: ['sensor'],
+  manutencao: ['maintenance', 'service'], preventiva: ['preventive'], torque: ['torque'], aperto: ['torque'], rotacao: ['rpm', 'speed'],
+  velocidade: ['speed'], combustivel: ['fuel'], bomba: ['pump'], injetor: ['injector'], alternador: ['alternator'], embreagem: ['clutch'],
+  compressor: ['compressor'], controlador: ['controller'], painel: ['display', 'panel'], tela: ['display'], porta: ['door'],
+  falha: ['fault', 'failure'], erro: ['error', 'fault'], defeito: ['fault'], peca: ['part'], pecas: ['parts'], numero: ['number'],
+  serie: ['serial'], diagrama: ['diagram'], eletrico: ['electrical', 'wiring'], fiacao: ['wiring'], rele: ['relay'], chave: ['switch'],
+  agua: ['water', 'coolant'], arrefecimento: ['coolant', 'cooling'], radiador: ['radiator'], umidade: ['humidity'], ar: ['air'],
+};
+function termosDe(texto) {
+  const vistos = {};
+  return norm(texto).split(/[^a-z0-9\-\.\/]+/).map(function (t) { return t.replace(/^[\-\.\/]+|[\-\.\/]+$/g, ''); })
+    .filter(function (t) { if (!t || STOP[t] || vistos[t] || (t.length < 3 && !/\d/.test(t))) return false; vistos[t] = 1; return true; })
+    .map(function (t) {
+      const g = [t];
+      if (!/\d/.test(t) && t.length >= 6) g.push(t.slice(0, t.length - 2));          // radical: alarme → alar…, temperaturas → temperatur…
+      (SINONIMOS[t] || SINONIMOS[t.replace(/s$/, '')] || []).forEach(function (x) { if (g.indexOf(x) < 0) g.push(x); });
+      return g;
+    });
+}
+function pesoTermo(g) { return /\d/.test(g[0]) ? 4 : (g[0].length >= 7 ? 2 : 1); }
+function contaGrupo(txt, g) { let m = 0; g.forEach(function (v) { m = Math.max(m, txt.split(v).length - 1); }); return Math.min(5, m); }
+function pontuar(txtNorm, termos) {
+  let sc = 0, achou = 0;
+  termos.forEach(function (g) {
+    const n = contaGrupo(txtNorm, g);
+    if (n > 0) { achou++; sc += pesoTermo(g) * (1 + Math.log(n)); }
+  });
+  for (let i = 0; i < termos.length - 1; i++) if (txtNorm.indexOf(termos[i][0] + ' ' + termos[i + 1][0]) >= 0) sc += 3;
+  return achou ? sc * (achou / termos.length + 0.5) : 0;
+}
+function listaManuais() {
+  const sh = abaManuais(), n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  return sh.getRange(2, 1, n, CAB_MAN.length).getValues().map(function (v, i) {
+    let partes = []; try { partes = JSON.parse(v[8] || '[]'); } catch (e) {}
+    return { linha: i + 2, id: v[0], marca: v[1], modelo: v[2], tipo: v[3], titulo: v[4], paginas: v[5], arquivo: v[6], link: v[7], partes: partes,
+             indice: v[9], por: v[10], em: v[11] ? new Date(v[11]).getTime() : null, semTexto: v[12] || 0 };
+  }).filter(function (m) { return m.id; });
+}
+function lerIndice(m) {
+  try { return JSON.parse(Utilities.ungzip(DriveApp.getFileById(m.indice).getBlob().setContentType('application/x-gzip')).getDataAsString()); }
+  catch (e) { return null; }
+}
+function buscarPecas(termos, max) {
+  const sh = abaPecas();
+  if (!sh || sh.getLastRow() < 2 || !termos.length) return { cabecalho: [], linhas: [] };
+  const vals = sh.getDataRange().getDisplayValues();
+  const cab = vals.shift();
+  const res = [];
+  vals.forEach(function (row) {
+    const j = norm(row.join(' | '));
+    let sc = 0;
+    termos.forEach(function (g) { if (g.some(function (t) { return j.indexOf(t) >= 0; })) sc += /\d/.test(g[0]) ? 10 : (g[0].length >= 4 ? 2 : 0.5); });
+    if (sc >= 2) res.push({ sc: sc, row: row });
+  });
+  res.sort(function (a, b) { return b.sc - a.sc; });
+  return { cabecalho: cab, linhas: res.slice(0, max).map(function (r) { return r.row; }) };
+}
+function gemini(parts, sistema) {
+  const p = props();
+  const key = p.getProperty('GEMINI_KEY');
+  if (!key) throw new Error('A chave da IA ainda não foi configurada (Ajustes → IA dos manuais).');
+  const modelo = p.getProperty('GEMINI_MODELO') || MODELO_PADRAO;
+  const body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json' } };
+  if (sistema) body.systemInstruction = { parts: [{ text: sistema }] };
+  const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
+    method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true,
+  });
+  const code = r.getResponseCode(), txt = r.getContentText();
+  if (code === 429) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.');
+  if (code !== 200) { let m = ''; try { m = JSON.parse(txt).error.message; } catch (e) { m = txt.slice(0, 200); } throw new Error('Erro da IA (' + code + '): ' + m); }
+  const j = JSON.parse(txt);
+  const c = j.candidates && j.candidates[0];
+  const out = c && c.content && c.content.parts ? c.content.parts.map(function (x) { return x.text || ''; }).join('') : '';
+  if (!out) throw new Error('A IA não retornou resposta. Tente reformular a pergunta.');
+  try { return JSON.parse(out); } catch (e) { const m = out.match(/\{[\s\S]*\}/); if (m) return JSON.parse(m[0]); throw new Error('Resposta inválida da IA'); }
+}
+
+const ACOES_MANUAIS = {
+  // Lista de manuais + informações da tabela de peças
+  manuais() {
+    const pi = props().getProperty('PECAS_INFO');
+    return { manuais: listaManuais().map(function (m) { delete m.indice; return m; }), pecas: pi ? JSON.parse(pi) : null };
+  },
+
+  perguntar(q) {
+    const pergunta = String(q.pergunta || '').trim();
+    if (pergunta.length < 3) throw new Error('Escreva a pergunta.');
+    const termos = termosDe(pergunta);
+    if (!termos.length) throw new Error('Escreva a pergunta com mais detalhes (modelo, código, sintoma).');
+    let mans = listaManuais();
+    if (q.marca) mans = mans.filter(function (m) { return m.marca === q.marca; });
+    const cands = [];
+    mans.forEach(function (m) {
+      const idx = lerIndice(m); if (!idx) return;
+      const meta = norm([m.marca, m.modelo, m.tipo, m.titulo].join(' '));
+      const boost = termos.some(function (g) { return g.some(function (t) { return meta.indexOf(t) >= 0; }); }) ? 1.6 : 1;
+      idx.paginas.forEach(function (txt, i) {
+        if (!txt) return;
+        const sc = pontuar(norm(txt), termos) * boost;
+        if (sc > 0) cands.push({ m: m, p: i + 1, sc: sc, txt: txt });
+      });
+    });
+    cands.sort(function (a, b) { return b.sc - a.sc; });
+    const top = cands.slice(0, 6);
+    const pecas = buscarPecas(termos, 12);
+    if (!top.length && !pecas.linhas.length) {
+      return { resposta: 'Não encontrei nada sobre isso nos manuais e na tabela de peças cadastrados. Tente usar outras palavras, o código do alarme ou o modelo do equipamento.', fontes: [], pecas: { cabecalho: [], linhas: [] } };
+    }
+    let ctx = '';
+    top.forEach(function (c, i) { ctx += '\n[' + (i + 1) + '] ' + c.m.titulo + ' — página ' + c.p + '\n' + String(c.txt).slice(0, 4500) + '\n'; });
+    if (pecas.linhas.length) ctx += '\n[TABELA DE PEÇAS] colunas: ' + pecas.cabecalho.join(' | ') + '\n' + pecas.linhas.map(function (l, i) { return 'P' + (i + 1) + ': ' + l.join(' | '); }).join('\n') + '\n';
+    const r = gemini([{ text: 'PERGUNTA DO TÉCNICO: ' + pergunta + '\n\nTRECHOS:' + ctx }], SISTEMA_IA);
+    const vistos = {};
+    const fontes = (r.fontes || []).map(function (n) { return parseInt(String(n).replace(/\D/g, ''), 10); })
+      .filter(function (n) { return n >= 1 && n <= top.length && !vistos[n] && (vistos[n] = 1); })
+      .map(function (n) { const c = top[n - 1]; return { manualId: c.m.id, titulo: c.m.titulo, pagina: c.p, link: c.m.link, partes: c.m.partes }; });
+    const pu = (r.pecas || []).map(function (n) { return parseInt(String(n).replace(/\D/g, ''), 10); })
+      .filter(function (n) { return n >= 1 && n <= pecas.linhas.length; });
+    return { resposta: String(r.resposta || ''), fontes: fontes, pecas: { cabecalho: pecas.cabecalho, linhas: pu.map(function (n) { return pecas.linhas[n - 1]; }) } };
+  },
+
+  pecasBuscar(q) {
+    const termos = termosDe(q.busca || '');
+    if (!termos.length) return { cabecalho: [], linhas: [] };
+    return buscarPecas(termos, 40);
+  },
+
+  // ----- administrador -----
+  iaConfig(q) {
+    const p = props();
+    if (q.chave) p.setProperty('GEMINI_KEY', String(q.chave).trim());
+    if (q.modelo) p.setProperty('GEMINI_MODELO', String(q.modelo).trim());
+    const k = p.getProperty('GEMINI_KEY') || '';
+    return { temChave: !!k, final: k ? k.slice(-4) : '', modelo: p.getProperty('GEMINI_MODELO') || MODELO_PADRAO };
+  },
+  iaTestar() {
+    const r = gemini([{ text: 'Responda apenas o JSON {"resposta":"ok"}' }]);
+    return { resposta: r.resposta || 'ok' };
+  },
+  manualIniciar(q) {
+    const id = Utilities.getUuid().slice(0, 13);
+    const titulo = String(q.titulo || 'Manual').slice(0, 120);
+    const f = pastaManuais().createFolder(titulo);
+    props().setProperty('M_' + id, f.getId());
+    return { id: id };
+  },
+  manualOcr(q) {
+    const parts = (q.imagens || []).map(function (b64) { return { inlineData: { mimeType: 'image/jpeg', data: b64 } }; });
+    parts.push({ text: 'As imagens acima são as páginas ' + (q.paginas || []).join(', ') + ' de um manual técnico de refrigeração. ' +
+      'Transcreva fielmente todo o texto de cada página, incluindo tabelas (uma linha por linha da tabela, colunas separadas por " | "), códigos e valores. ' +
+      'Não resuma nem traduza. Responda em JSON: {"paginas": [{"n": número da página, "texto": "..."}]} na mesma ordem das imagens.' });
+    const r = gemini(parts);
+    return { paginas: (r.paginas || []).map(function (x, i) { return { n: Number(x.n) || (q.paginas || [])[i], texto: String(x.texto || '') }; }) };
+  },
+  manualConcluir(q, sess) {
+    const pasta = pastaManual(q.id);
+    const idx = Utilities.gzip(Utilities.newBlob(JSON.stringify({ paginas: q.indice || [] }), 'application/json'), 'indice.json.gz');
+    const fi = pasta.createFile(idx);
+    let link = '';
+    try {
+      const f = DriveApp.getFileById(q.arquivoId);
+      f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      link = 'https://drive.google.com/file/d/' + q.arquivoId + '/view';
+    } catch (e) { link = 'https://drive.google.com/file/d/' + q.arquivoId + '/view'; }
+    abaManuais().appendRow([q.id, q.marca || '', q.modelo || '', q.tipo || '', q.titulo || '', q.paginas || 0, q.arquivoId, link,
+      JSON.stringify(q.partes || []), fi.getId(), sess.n, new Date(), q.semTexto || 0]);
+    return { link: link };
+  },
+  manualExcluir(q) {
+    const m = listaManuais().filter(function (x) { return x.id === q.id; })[0];
+    if (!m) throw new Error('Manual não encontrado');
+    try { pastaManual(q.id).setTrashed(true); } catch (e) {}
+    abaManuais().deleteRow(m.linha);
+    return {};
+  },
+  pecasImportar(q) {
+    const s = ss();
+    let sh = s.getSheetByName('Peças');
+    if (q.inicio) {
+      if (!sh) sh = s.insertSheet('Peças'); else sh.clear();
+      sh.getRange(1, 1, 1, q.cabecalho.length).setValues([q.cabecalho]).setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
+      sh.setFrozenRows(1);
+    }
+    const linhas = (q.linhas || []).map(function (l) { return q.cabecalho.map(function (_, i) { return l[i] == null ? '' : String(l[i]); }); });
+    if (linhas.length) sh.getRange(sh.getLastRow() + 1, 1, linhas.length, q.cabecalho.length).setNumberFormat('@').setValues(linhas);
+    if (q.fim) props().setProperty('PECAS_INFO', JSON.stringify({ linhas: sh.getLastRow() - 1, arquivo: q.arquivo || '', em: Date.now() }));
+    return { total: sh.getLastRow() - 1 };
+  },
+};
+Object.keys(ACOES_MANUAIS).forEach(function (k) { ACOES[k] = ACOES_MANUAIS[k]; });

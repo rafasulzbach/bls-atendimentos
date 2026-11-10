@@ -310,6 +310,31 @@ textarea.inp{min-height:110px;resize:vertical}
 .perm td{padding:10px 6px;border-bottom:1px solid var(--line);text-align:center}
 .perm input{width:20px;height:20px;accent-color:var(--pri)}
 .catsel{padding:7px 10px;border-radius:9px;border:1.5px solid var(--line);background:#fff;font:inherit;font-size:13.5px;font-weight:600}
+/* Manuais */
+.mtabs{margin:0}
+.mq{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.mresp{margin-top:14px}
+.mresp h4{margin:18px 0 8px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.mtxt{line-height:1.6;font-size:15.5px}
+.mtxt p{margin:0 0 8px}
+.mtxt ul{margin:4px 0 10px;padding-left:22px}
+.mload{color:var(--pri);font-weight:600;animation:pulse 1.2s infinite}
+.fonte{display:flex;flex-direction:column;gap:8px;padding:12px;background:#f7f9fc;border-left:3px solid var(--acc);border-radius:0 10px 10px 0;margin-bottom:8px}
+.fonte small{display:block;color:var(--muted)}
+.fbtn{display:flex;flex-wrap:wrap;gap:6px}
+.fbtn .btn{padding:8px 12px;font-size:13.5px;text-decoration:none}
+.aviso-ia{font-size:12.5px;color:var(--muted);margin:14px 0 0}
+.ptab{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.ptab table{border-collapse:collapse;width:100%;font-size:13.5px}
+.ptab th{background:#f2f5f9;text-align:left;padding:8px 10px;white-space:nowrap}
+.ptab td{padding:8px 10px;border-top:1px solid var(--line)}
+.mgrupo{margin-bottom:18px}
+.mgrupo h3{margin:0 0 8px;font-size:15px}
+.mitem{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:12px;box-shadow:var(--sh);padding:10px 12px;margin-bottom:8px}
+.mitem .mi{font-size:24px}
+.mitem small{display:block;color:var(--muted);font-size:12.5px}
+.mitem .btn{padding:8px 12px;font-size:13.5px;text-decoration:none}
+@media (max-width:820px){ .fbtn .btn{flex:1 1 140px} }
 /* Modal / visualizador / toast */
 .modal-bg{position:fixed;inset:0;background:rgba(10,20,40,.55);display:grid;place-items:center;z-index:90;padding:16px}
 .modal{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -367,6 +392,8 @@ textarea.inp{min-height:110px;resize:vertical}
   .nav{flex-direction:row;width:100%;gap:2px}
   .nav button{flex:1;flex-direction:column;gap:2px;padding:7px 2px;font-size:11.5px;position:relative}
   .nav .ico{width:23px;height:23px}
+  .nav.seis button{font-size:9.3px!important;letter-spacing:-.3px}
+  .nav.seis .ico{width:21px;height:21px}
   .nav button>span:not(.ico):not(.badge){line-height:1.1;display:block}
   .nav .badge{position:absolute;top:2px;right:calc(50% - 26px);margin:0;background:var(--red);color:#fff;font-size:10.5px;padding:0 6px;min-width:18px}
   .nav button.on .badge{background:#fff;color:var(--side)}
@@ -395,6 +422,7 @@ textarea.inp{min-height:110px;resize:vertical}
       <button data-nav="atendimentos"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg></span><span>Atendimentos</span><span class="badge" id="bAt">0</span></button>
       <button data-nav="cobranca"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></svg></span><span>Cobrança</span><span class="badge" id="bCob">0</span></button>
       <button data-nav="teste"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17"/><path d="m9 3.5 3 2 3-2M9 20.5l3-2 3 2M4.2 10.6l3.4-.6-1.1-3.3M19.8 13.4l-3.4.6 1.1 3.3M19.8 10.6l-3.4-.6 1.1-3.3M4.2 13.4l3.4.6-1.1 3.3"/></svg></span><span>Teste de Frio</span></button>
+      <button data-nav="manuais"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6.5A2.5 2.5 0 0 0 4 20.5 2.5 2.5 0 0 0 6.5 23H19v-5"/><path d="M8 7h7M8 11h5"/></svg></span><span>Manuais</span></button>
       <button data-nav="config"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><span id="lblCfg">Ajustes</span><span class="badge hidden" id="bCfg">0</span></button>
     </nav>
     <div class="side-foot">Versão <span id="versao"></span></div>
@@ -428,7 +456,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.8.0';
+const APP_VERSAO = '1.9.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -757,7 +785,7 @@ async function render() {
   $('#bCob').textContent = nCob; $('#bCob').classList.toggle('hidden', !nCob);
   const navAtivo = { form:'atendimentos', detalhe:'atendimentos', testeForm:'teste', testeDet:'teste' }[atual.view] || atual.view;
   document.querySelectorAll('#nav [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === navAtivo));
-  const fn = { inicio:vInicio, atendimentos:vAtendimentos, cobranca:vCobranca, teste:vTeste, testeForm:vTesteForm, testeDet:vTesteDet, config:() => Sessao.admin() ? vConfig() : vPerfil(), form:vForm, detalhe:vDetalhe }[atual.view];
+  const fn = { inicio:vInicio, atendimentos:vAtendimentos, cobranca:vCobranca, teste:vTeste, testeForm:vTesteForm, testeDet:vTesteDet, manuais:vManuais, config:() => Sessao.admin() ? vConfig() : vPerfil(), form:vForm, detalhe:vDetalhe }[atual.view];
   await fn(lista, testes);
   carregarPendentes();
 }
@@ -1399,6 +1427,313 @@ async function excluirObs(oid) {
   await gravar(a); freeUrls(); render();
 }
 
+/* ---------- Manuais (biblioteca + IA) ---------- */
+const PDFJS_V = '6.2.108';
+const normTxt = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+let _pdfjs = null, manCache = null, manTab = 'ia', manResp = null, manPecas = null;
+const TIPOS_MANUAL = ['Manual de serviço', 'Manual de operação', 'Catálogo de peças', 'Diagrama elétrico', 'Boletim técnico', 'Outro'];
+function carregarJS(src, glob) {
+  return new Promise((res, rej) => {
+    if (glob && window[glob]) return res(window[glob]);
+    const sc = document.createElement('script'); sc.src = src; sc.async = true;
+    sc.onload = () => res(glob ? window[glob] : true); sc.onerror = () => rej(new Error('Sem conexão para carregar o leitor de PDF/planilha'));
+    document.head.appendChild(sc);
+  });
+}
+async function pdfjs() {
+  if (_pdfjs) return _pdfjs;
+  const base = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_V}/build/`;
+  const m = await import(base + 'pdf.min.mjs');
+  try {
+    const w = new Worker(URL.createObjectURL(new Blob([`import "${base}pdf.worker.min.mjs";`], { type:'text/javascript' })), { type:'module' });
+    m.GlobalWorkerOptions.workerPort = w;
+  } catch (e) { m.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.mjs'; }
+  _pdfjs = m; return m;
+}
+const pdflib = () => carregarJS('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js', 'PDFLib');
+const xlsxLib = () => carregarJS('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'XLSX');
+function mdSimples(t) {
+  return esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/\n/).map(l => {
+    const m = l.match(/^\s*[-•*]\s+(.*)/); return m ? `<li>${m[1]}</li>` : (l.trim() ? `<p>${l}</p>` : '');
+  }).join('').replace(/(<li>.*?<\/li>)+/g, x => `<ul>${x}</ul>`);
+}
+async function carregarManuais(forcar) {
+  if (manCache && !forcar) return manCache;
+  manCache = await Sync.api('manuais');
+  return manCache;
+}
+function tabelaPecas(p) {
+  if (!p || !p.linhas || !p.linhas.length) return '';
+  return `<div class="ptab"><table><tr>${p.cabecalho.map(c => `<th>${esc(c)}</th>`).join('')}</tr>${p.linhas.map(l => `<tr>${l.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+}
+async function vManuais() {
+  cab('Manuais', 'Consulta com IA nos manuais e peças');
+  const adm = Sessao.admin();
+  $('#view').innerHTML = `
+    <div class="chips mtabs">
+      <button class="chip ${manTab === 'ia' ? 'on' : ''}" data-mtab="ia">✨ Perguntar</button>
+      <button class="chip ${manTab === 'bib' ? 'on' : ''}" data-mtab="bib">📚 Biblioteca</button>
+      <button class="chip ${manTab === 'pecas' ? 'on' : ''}" data-mtab="pecas">🔩 Peças</button>
+    </div>
+    <div id="manBody" style="margin-top:14px"><div class="empty">Carregando...</div></div>`;
+  let dados;
+  try { dados = await carregarManuais(); } catch (e) { $('#manBody').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (atual.view !== 'manuais') return;
+  const marcas = [...new Set(dados.manuais.map(m => m.marca).filter(Boolean))].sort();
+  const b = $('#manBody');
+  if (manTab === 'ia') {
+    b.innerHTML = `<div class="card">
+        <h3 style="margin:0 0 6px">Pergunte aos manuais</h3>
+        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">A IA procura nos ${dados.manuais.length} manual(is)${dados.pecas ? ' e na tabela de peças' : ''} e mostra de onde tirou a resposta.</p>
+        <textarea class="inp" id="mPerg" style="min-height:84px" placeholder="Ex.: O que significa o alarme 34 no Supra 850?">${esc(manResp ? manResp.pergunta : '')}</textarea>
+        <div class="mq">${marcas.length > 1 ? `<select class="catsel" id="mMarca"><option value="">Todas as marcas</option>${marcas.map(m => `<option>${esc(m)}</option>`).join('')}</select>` : ''}
+          <button class="btn" data-man="perguntar" style="flex:1">✨ Perguntar</button></div>
+      </div>
+      <div id="mResp">${manResp ? respostaHtml(manResp) : ''}</div>`;
+    const ta = $('#mPerg'); ta.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) perguntarIA(); };
+  } else if (manTab === 'bib') {
+    const grupos = {};
+    dados.manuais.forEach(m => (grupos[m.marca || 'Outros'] = grupos[m.marca || 'Outros'] || []).push(m));
+    b.innerHTML = `${adm ? `<div class="btnrow" style="margin-bottom:14px"><button class="btn" data-man="novo">＋ Adicionar manual</button></div>` : ''}
+      <input class="search" id="mBusca" placeholder="Buscar manual por marca, modelo ou tipo..." style="width:100%;margin-bottom:14px">
+      <div id="mLista">${Object.keys(grupos).sort().map(g => `<div class="mgrupo" data-g="${esc(normTxt(g))}"><h3>${esc(g)}</h3>${grupos[g].sort((a, b) => String(a.modelo).localeCompare(b.modelo)).map(m => `
+        <div class="mitem" data-busca="${esc(normTxt([m.marca, m.modelo, m.tipo, m.titulo].join(' ')))}">
+          <div class="mi">📘</div><div style="flex:1;min-width:0"><b>${esc(m.modelo || m.titulo)}</b><small>${esc(m.tipo)} · ${m.paginas} páginas</small></div>
+          <a class="btn sec" href="${esc(m.link)}" target="_blank" rel="noopener">Abrir</a>
+          ${adm ? `<button class="btn danger" data-mdel="${m.id}" title="Excluir">🗑</button>` : ''}
+        </div>`).join('')}</div>`).join('') || '<div class="empty">Nenhum manual cadastrado ainda.</div>'}</div>`;
+    $('#mBusca').oninput = e => {
+      const t = normTxt(e.target.value);
+      document.querySelectorAll('.mitem').forEach(i => i.classList.toggle('hidden', !!t && !i.dataset.busca.includes(t)));
+      document.querySelectorAll('.mgrupo').forEach(g => g.classList.toggle('hidden', !g.querySelector('.mitem:not(.hidden)')));
+    };
+  } else {
+    const p = dados.pecas;
+    b.innerHTML = `${adm ? `<div class="card" style="margin-bottom:14px"><h3 style="margin:0 0 6px">Tabela de peças</h3>
+        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">${p ? `${p.linhas} linhas · ${esc(p.arquivo || '')} · atualizada em ${fmtCurto(p.em)}` : 'Nenhuma tabela importada ainda.'} Envie a planilha (.xlsx ou .csv) com os códigos e nomes das peças: a primeira linha deve ter os títulos das colunas. Ao importar, a tabela anterior é substituída.</p>
+        <div class="btnrow"><button class="btn sec" data-man="pecas">📥 Importar planilha</button></div><div id="pProg" style="margin-top:8px;font-size:14px;color:var(--muted)"></div></div>` : ''}
+      <div class="card"><h3 style="margin:0 0 10px">Buscar peça</h3>
+        <div class="mq"><input class="inp" id="pBusca" placeholder="Código ou nome da peça" style="flex:1;margin:0" value="${esc(manPecas ? manPecas.busca : '')}"><button class="btn" data-man="buscaPeca">Buscar</button></div>
+        <div id="pRes" style="margin-top:12px">${manPecas ? (manPecas.r.linhas.length ? tabelaPecas(manPecas.r) : '<div style="color:var(--muted)">Nada encontrado.</div>') : (p ? '' : '<div style="color:var(--muted)">A tabela de peças ainda não foi importada.</div>')}</div></div>`;
+    $('#pBusca').onkeydown = e => { if (e.key === 'Enter') buscarPeca(); };
+  }
+}
+function respostaHtml(r) {
+  if (r.carregando) return `<div class="card mresp"><div class="mload">✨ Procurando nos manuais...</div></div>`;
+  return `<div class="card mresp">
+    <div class="mtxt">${mdSimples(r.resposta || '')}</div>
+    ${r.fontes && r.fontes.length ? `<h4>Fontes</h4>${r.fontes.map(f => `<div class="fonte">
+        <div><b>${esc(f.titulo)}</b><small>Página ${f.pagina}</small></div>
+        <div class="fbtn"><button class="btn sec" data-pag="${f.manualId}|${f.pagina}">👁 Ver página</button>
+          <button class="btn sec" data-pagdl="${f.manualId}|${f.pagina}">⬇ Página (PDF)</button>
+          <a class="btn ghost" href="${esc(f.link)}" target="_blank" rel="noopener">📘 Manual completo</a></div></div>`).join('')}` : ''}
+    ${r.pecas && r.pecas.linhas && r.pecas.linhas.length ? `<h4>Tabela de peças</h4>${tabelaPecas(r.pecas)}` : ''}
+    <p class="aviso-ia">Resposta gerada por IA a partir dos manuais. Confira na página indicada antes de executar o serviço.</p>
+  </div>`;
+}
+async function perguntarIA() {
+  const pergunta = ($('#mPerg').value || '').trim();
+  if (pergunta.length < 3) { toast('Escreva a pergunta.'); return; }
+  const marca = $('#mMarca') ? $('#mMarca').value : '';
+  manResp = { pergunta, carregando:true }; $('#mResp').innerHTML = respostaHtml(manResp);
+  try { const r = await Sync.api('perguntar', { pergunta, marca }); manResp = { ...r, pergunta }; }
+  catch (e) { manResp = { pergunta, resposta:'⚠️ ' + e.message, fontes:[] }; }
+  if ($('#mResp')) $('#mResp').innerHTML = respostaHtml(manResp);
+}
+async function buscarPeca() {
+  const busca = $('#pBusca').value.trim(); if (!busca) return;
+  $('#pRes').innerHTML = '<div style="color:var(--muted)">Buscando...</div>';
+  try { manPecas = { busca, r: await Sync.api('pecasBuscar', { busca }) }; }
+  catch (e) { $('#pRes').innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`; return; }
+  $('#pRes').innerHTML = manPecas.r.linhas.length ? tabelaPecas(manPecas.r) : '<div style="color:var(--muted)">Nada encontrado.</div>';
+}
+// página de um manual: baixa só a "parte" (bloco de 10 páginas) onde ela está
+const partesCache = new Map();
+async function obterParte(manualId, pagina) {
+  const dados = await carregarManuais();
+  const m = dados.manuais.find(x => x.id === manualId) || ((manResp && manResp.fontes) || []).find(f => f.manualId === manualId);
+  const partes = (m && m.partes) || [];
+  const pt = partes.find(p => pagina >= p.de && pagina <= p.ate);
+  if (!pt) throw new Error('Página não encontrada no manual');
+  const chave = 'parte:' + pt.id;
+  if (!partesCache.has(chave)) {
+    const salvo = await DB.get('midia', chave);
+    let blob = salvo && salvo.blob;
+    if (!blob) {
+      const r = await Sync.api('baixar', { driveId:pt.id });
+      blob = deB64(r.data, 'application/pdf');
+      DB.put('midia', { id:chave, campo:'manual', tipo:'pdf', blob, mime:'application/pdf', criadoEm:Date.now() }).catch(() => {});
+    }
+    partesCache.set(chave, blob);
+  }
+  return { blob: partesCache.get(chave), indice: pagina - pt.de, titulo: (m && m.titulo) || 'Manual', link: m && m.link };
+}
+async function verPagina(manualId, pagina) {
+  const v = document.createElement('div'); v.className = 'viewer';
+  v.innerHTML = `<div class="vt"><span style="font-size:14px">Página ${pagina}</span><span style="display:flex;gap:8px"><a href="#" data-dl>⬇ Baixar página</a><a href="#" data-x>✕</a></span></div>
+    <div class="vb" style="overflow:auto;display:block;text-align:center"><div style="color:#fff;padding:40px">Carregando página...</div></div>`;
+  document.body.appendChild(v);
+  v.addEventListener('click', e => {
+    if (e.target.closest('[data-x]')) { e.preventDefault(); v.remove(); }
+    if (e.target.closest('[data-dl]')) { e.preventDefault(); baixarPagina(manualId, pagina); }
+  });
+  try {
+    const { blob, indice } = await obterParte(manualId, pagina);
+    const lib = await pdfjs();
+    const doc = await lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
+    const pg = await doc.getPage(indice + 1);
+    const larg = Math.min(1600, Math.max(900, window.innerWidth * 2));
+    const vp0 = pg.getViewport({ scale:1 }), vp = pg.getViewport({ scale: larg / vp0.width });
+    const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+    await pg.render({ canvasContext:c.getContext('2d'), viewport:vp }).promise;
+    c.style.cssText = 'display:block;margin:0 auto;width:100%;max-width:900px;height:auto;background:#fff;border-radius:6px';
+    const vb = v.querySelector('.vb'); vb.innerHTML = ''; vb.appendChild(c);
+  } catch (e) { v.querySelector('.vb').innerHTML = `<div style="color:#fff;padding:40px">${esc(e.message)}</div>`; }
+}
+async function baixarPagina(manualId, pagina) {
+  toast('Preparando a página...');
+  try {
+    const { blob, indice, titulo } = await obterParte(manualId, pagina);
+    const { PDFDocument } = await pdflib();
+    const src = await PDFDocument.load(await blob.arrayBuffer(), { ignoreEncryption:true });
+    const out = await PDFDocument.create();
+    const [p] = await out.copyPages(src, [indice]); out.addPage(p);
+    const b = new Blob([await out.save()], { type:'application/pdf' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+    a.download = `${titulo} - pag ${pagina}.pdf`.replace(/[\\/:*?"<>|]/g, '-');
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e) { toast('Não foi possível baixar: ' + e.message, 4000); }
+}
+// ----- cadastro de manual (administrador) -----
+function escolherArquivo(accept) {
+  return new Promise(res => { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.onchange = () => res(i.files[0] || null); i.click(); });
+}
+async function enviarArquivoDrive(blob, nome, destino, prog) {
+  const N = 4 * 1024 * 1024, mime = blob.type || 'application/pdf';
+  let off = 0, sessao = null;
+  while (off < blob.size) {
+    const parte = blob.slice(off, off + N);
+    const r = await Sync.api('upload', { destino, nome, mime, tamanho:blob.size, offset:off, sessao, data: await paraB64(parte) });
+    off += parte.size; if (prog) prog(off / blob.size);
+    if (r.fim) return r.driveId;
+    sessao = r.sessao;
+  }
+  throw new Error('Envio incompleto');
+}
+async function novoManual() {
+  const dados = await carregarManuais();
+  const marcas = [...new Set(['Carrier', ...dados.manuais.map(m => m.marca).filter(Boolean)])];
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = `<div class="modal" style="max-width:480px">
+    <h3>Adicionar manual</h3>
+    <div class="cfg">
+      <label>Arquivo PDF</label><button class="btn sec" id="nmArq" style="width:100%;margin-bottom:14px">📄 Escolher PDF</button>
+      <label>Marca</label><input class="inp" id="nmMarca" list="nmMarcas" value="Carrier"><datalist id="nmMarcas">${marcas.map(m => `<option value="${esc(m)}">`).join('')}</datalist>
+      <label>Modelo / equipamento</label><input class="inp" id="nmModelo" placeholder="Ex.: Supra 850">
+      <label>Tipo</label><select class="inp" id="nmTipo">${TIPOS_MANUAL.map(t => `<option>${t}</option>`).join('')}</select>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" id="nmOcr" checked style="width:18px;height:18px"> Ler páginas escaneadas com a IA</label>
+    </div>
+    <div id="nmProg" style="font-size:14px;color:var(--muted);min-height:20px;margin-top:10px"></div>
+    <div class="mf"><button class="btn ghost" id="nmCanc">Cancelar</button><button class="btn" id="nmOk">Enviar manual</button></div></div>`;
+  document.body.appendChild(bg);
+  let arquivo = null, rodando = false;
+  bg.querySelector('#nmArq').onclick = async () => { const f = await escolherArquivo('application/pdf,.pdf'); if (f) { arquivo = f; bg.querySelector('#nmArq').textContent = '📄 ' + f.name; if (!$('#nmModelo').value) $('#nmModelo').value = f.name.replace(/\.pdf$/i, ''); } };
+  bg.querySelector('#nmCanc').onclick = () => { if (!rodando) bg.remove(); };
+  bg.querySelector('#nmOk').onclick = async () => {
+    if (rodando) return;
+    const marca = $('#nmMarca').value.trim(), modelo = $('#nmModelo').value.trim(), tipo = $('#nmTipo').value, ocr = $('#nmOcr').checked;
+    if (!arquivo) { toast('Escolha o arquivo PDF.'); return; }
+    if (!modelo) { toast('Informe o modelo.'); return; }
+    rodando = true; bg.querySelector('#nmOk').disabled = true; bg.querySelector('#nmCanc').disabled = true;
+    const prog = t => { const el = bg.querySelector('#nmProg'); if (el) el.textContent = t; };
+    try {
+      await processarManual(arquivo, { marca, modelo, tipo, ocr }, prog);
+      bg.remove(); manCache = null; toast('Manual adicionado ✓'); render();
+    } catch (e) { prog('⚠️ ' + e.message); rodando = false; bg.querySelector('#nmOk').disabled = false; bg.querySelector('#nmCanc').disabled = false; }
+  };
+}
+async function processarManual(arquivo, meta, prog) {
+  const titulo = [meta.marca, meta.modelo, '—', meta.tipo].filter(Boolean).join(' ');
+  prog('Abrindo o PDF...');
+  const buf = await arquivo.arrayBuffer();
+  const lib = await pdfjs();
+  const doc = await lib.getDocument({ data: new Uint8Array(buf.slice(0)) }).promise;
+  const n = doc.numPages, textos = [], escaneadas = [];
+  for (let i = 1; i <= n; i++) {
+    const pg = await doc.getPage(i);
+    const tc = await pg.getTextContent();
+    let t = ''; tc.items.forEach(it => { t += it.str + (it.hasEOL ? '\n' : ' '); });
+    t = t.replace(/[ \t]+/g, ' ').trim();
+    textos.push(t);
+    if (t.replace(/\s/g, '').length < 40) escaneadas.push(i);
+    if (i % 10 === 0) prog(`Lendo o texto: página ${i} de ${n}...`);
+  }
+  let semTexto = escaneadas.length;
+  if (meta.ocr && escaneadas.length) {
+    for (let k = 0; k < escaneadas.length; k += 4) {
+      const lote = escaneadas.slice(k, k + 4), imgs = [];
+      prog(`Lendo páginas escaneadas com a IA: ${Math.min(k + 4, escaneadas.length)} de ${escaneadas.length}...`);
+      for (const i of lote) {
+        const pg = await doc.getPage(i), vp0 = pg.getViewport({ scale:1 }), vp = pg.getViewport({ scale: 1400 / vp0.width });
+        const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+        await pg.render({ canvasContext:c.getContext('2d'), viewport:vp }).promise;
+        imgs.push(await paraB64(await new Promise(r => c.toBlob(r, 'image/jpeg', 0.7))));
+      }
+      try {
+        const r = await Sync.api('manualOcr', { paginas:lote, imagens:imgs });
+        r.paginas.forEach(p => { if (p.texto && p.n >= 1 && p.n <= n) { textos[p.n - 1] = p.texto; semTexto--; } });
+      } catch (e) {
+        if (/limite/i.test(e.message)) { prog('Limite da IA atingido: aguardando 1 minuto...'); await new Promise(r => setTimeout(r, 62000)); k -= 4; continue; }
+        throw e;
+      }
+    }
+  }
+  prog('Preparando o envio...');
+  const { id } = await Sync.api('manualIniciar', { titulo });
+  const destino = 'manual:' + id;
+  const nomeBase = titulo.replace(/[\\/:*?"<>|]/g, '-');
+  const arquivoId = await enviarArquivoDrive(new Blob([buf], { type:'application/pdf' }), nomeBase + '.pdf', destino, f => prog(`Enviando o manual: ${Math.round(f * 100)}%`));
+  const { PDFDocument } = await pdflib();
+  const src = await PDFDocument.load(buf, { ignoreEncryption:true });
+  const partes = [];
+  for (let de = 1; de <= n; de += 10) {
+    const ate = Math.min(n, de + 9);
+    prog(`Separando páginas para consulta rápida: ${ate} de ${n}...`);
+    const out = await PDFDocument.create();
+    const pgs = await out.copyPages(src, Array.from({ length: ate - de + 1 }, (_, i) => de - 1 + i));
+    pgs.forEach(p => out.addPage(p));
+    const pid = await enviarArquivoDrive(new Blob([await out.save()], { type:'application/pdf' }), `parte_${String(de).padStart(4, '0')}-${String(ate).padStart(4, '0')}.pdf`, destino);
+    partes.push({ de, ate, id:pid });
+  }
+  prog('Finalizando...');
+  await Sync.api('manualConcluir', { id, marca:meta.marca, modelo:meta.modelo, tipo:meta.tipo, titulo, paginas:n, arquivoId, partes, indice:textos, semTexto: Math.max(0, semTexto) });
+}
+async function excluirManual(id) {
+  const m = (await carregarManuais()).manuais.find(x => x.id === id); if (!m) return;
+  if (!await confirmar('Excluir manual?', `<b>${esc(m.titulo)}</b> sai da biblioteca e da busca da IA. O arquivo vai para a lixeira do Drive.`, 'Excluir', 'danger')) return;
+  try { await Sync.api('manualExcluir', { id }); manCache = null; toast('Manual excluído'); render(); } catch (e) { toast(e.message); }
+}
+async function importarPecas() {
+  const f = await escolherArquivo('.xlsx,.xls,.csv'); if (!f) return;
+  const pr = t => { const el = $('#pProg'); if (el) el.textContent = t; };
+  try {
+    pr('Lendo a planilha...');
+    const X = await xlsxLib();
+    const wb = X.read(await f.arrayBuffer(), { type:'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = X.utils.sheet_to_json(ws, { header:1, raw:false, defval:'' }).filter(r => r.some(c => String(c).trim()));
+    if (rows.length < 2) throw new Error('A planilha está vazia');
+    const cabecalho = rows.shift().map((c, i) => String(c).trim() || 'Coluna ' + (i + 1));
+    if (!await confirmar('Importar tabela de peças?', `<b>${rows.length}</b> linhas e as colunas: ${cabecalho.map(esc).join(', ')}.<br>A tabela atual será substituída.`, 'Importar')) { pr(''); return; }
+    const L = 2000;
+    for (let i = 0; i < rows.length; i += L) {
+      pr(`Enviando: ${Math.min(i + L, rows.length)} de ${rows.length} linhas...`);
+      await Sync.api('pecasImportar', { inicio:i === 0, fim:i + L >= rows.length, cabecalho, linhas:rows.slice(i, i + L), arquivo:f.name });
+    }
+    manCache = null; toast('Tabela de peças importada ✓'); render();
+  } catch (e) { pr('⚠️ ' + e.message); }
+}
+
 /* ---------- Visualizador ---------- */
 async function verMidia(id) {
   const m = await DB.get('midia', id); if (!m) return;
@@ -1621,11 +1956,18 @@ async function vConfig() {
       <p style="color:var(--muted);margin-top:0">Quando um técnico entra pela primeira vez com a conta Google, ele aparece aqui como <b>Pendente</b>. Libere só quem for da equipe.</p>
       <div class="ulist" id="usuList"><span style="color:var(--muted)">Carregando...</span></div></div>
     <div class="card cfg" style="max-width:660px;margin-top:14px">
+      <h3 style="margin-top:0">IA dos manuais (Gemini)</h3>
+      <p style="color:var(--muted);margin-top:0">Chave gratuita criada no Google AI Studio. Ela fica guardada só no seu servidor do Google.</p>
+      <label>Chave da API</label><input class="inp" id="iaChave" type="password" autocomplete="off" placeholder="Cole a chave aqui (começa com AIza...)">
+      <label>Modelo</label><input class="inp" id="iaModelo" autocomplete="off" placeholder="gemini-flash-latest">
+      <div class="btnrow"><button class="btn" data-ia="salvar">Salvar</button><button class="btn sec" data-ia="testar">Testar a IA</button></div>
+      <div id="iaStatus" style="margin-top:10px;font-size:14px;color:var(--muted)">Carregando...</div></div>
+    <div class="card cfg" style="max-width:660px;margin-top:14px">
       <h3 style="margin-top:0">Abas de cada categoria</h3>
       <p style="color:var(--muted);margin-top:0">Marque o que cada categoria pode ver. <b>Início</b> e <b>Perfil</b> aparecem para todos. Usuário novo entra como <b>Técnico</b>.</p>
       <div id="permBox"><span style="color:var(--muted)">Carregando...</span></div></div>` : ''}
     <div class="card" style="max-width:660px;margin-top:14px;color:var(--muted);font-size:14px">Versão do app: <b>${APP_VERSAO}</b></div>`;
-  if (Sync.cfg()) carregarUsuarios();
+  if (Sync.cfg()) { carregarUsuarios(); iaAcao('status'); }
 }
 async function carregarUsuarios() {
   const el = $('#usuList'); if (!el) return;
@@ -1648,6 +1990,17 @@ async function carregarUsuarios() {
       ${u.situacao !== 'Liberado' ? `<button class="btn ghost" data-usu="${esc(u.email)}" data-op="excluir">Remover</button>` : ''}
     </div>`).join('') : '<span style="color:var(--muted)">Nenhum técnico cadastrado ainda.</span>';
   } catch (e) { el.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
+}
+async function iaAcao(a) {
+  const st = t => { const el = $('#iaStatus'); if (el) el.innerHTML = t; };
+  try {
+    if (a === 'testar') { st('Testando...'); await Sync.api('iaTestar'); st('<b style="color:var(--ok)">✓ A IA respondeu. Tudo certo!</b>'); return; }
+    const dados = a === 'salvar' ? { chave:$('#iaChave').value.trim(), modelo:$('#iaModelo').value.trim() } : {};
+    const r = await Sync.api('iaConfig', dados);
+    if ($('#iaModelo') && !$('#iaModelo').value) $('#iaModelo').value = r.modelo;
+    if (a === 'salvar') { $('#iaChave').value = ''; toast('Configuração da IA salva ✓'); }
+    st(r.temChave ? `Chave configurada (termina em <b>${esc(r.final)}</b>) · modelo <b>${esc(r.modelo)}</b>` : '<b style="color:var(--red)">Nenhuma chave configurada.</b>');
+  } catch (e) { st(`<span style="color:var(--red)">${esc(e.message)}</span>`); }
 }
 async function salvarPermissoes() {
   const perm = { tecnico:[], geral:[] };
@@ -1861,7 +2214,7 @@ async function verificarPendentes() {
   } catch (e) {}
 }
 /* ---------- Perfil, nome e permissões ---------- */
-const NOMES_ABAS = { atendimentos:'Atendimentos', cobranca:'Cobrança', teste:'Teste de Frio' };
+const NOMES_ABAS = { atendimentos:'Atendimentos', cobranca:'Cobrança', teste:'Teste de Frio', manuais:'Manuais' };
 const Perfil = {
   get() { try { return JSON.parse(lsGet('perfil') || 'null'); } catch (e) { return null; } },
   async carregar() {
@@ -1879,14 +2232,14 @@ const Perfil = {
 };
 function abasLiberadas() {
   const s = Sessao.get(); if (!s) return [];
-  if (s.admin) return ['atendimentos', 'cobranca', 'teste'];
+  if (s.admin) return ['atendimentos', 'cobranca', 'teste', 'manuais'];
   const p = Perfil.get();
   if (p && p.email === s.usuario && Array.isArray(p.abas)) return p.abas;
-  return ['atendimentos', 'teste'];
+  return ['atendimentos', 'teste', 'manuais'];
 }
 const podeVer = aba => abasLiberadas().includes(aba);
 function podeVerView(v) {
-  const aba = { atendimentos:'atendimentos', cobranca:'cobranca', teste:'teste', testeForm:'teste', testeDet:'teste' }[v];
+  const aba = { atendimentos:'atendimentos', cobranca:'cobranca', teste:'teste', testeForm:'teste', testeDet:'teste', manuais:'manuais' }[v];
   return !aba || podeVer(aba);
 }
 async function salvarNome(nome) {
@@ -1954,7 +2307,8 @@ function aplicarPerfil() {
   const s = Sessao.get();
   document.querySelector('[data-nav="config"]').classList.toggle('hidden', !s);
   $('#lblCfg').textContent = s && s.admin ? 'Ajustes' : 'Perfil';
-  ['atendimentos', 'cobranca', 'teste'].forEach(a => document.querySelector(`[data-nav="${a}"]`).classList.toggle('hidden', !!s && !podeVer(a)));
+  ['atendimentos', 'cobranca', 'teste', 'manuais'].forEach(a => document.querySelector(`[data-nav="${a}"]`).classList.toggle('hidden', !!s && !podeVer(a)));
+  $('#nav').classList.toggle('seis', document.querySelectorAll('#nav [data-nav]:not(.hidden)').length > 5);
   const ub = $('#userBtn');
   ub.classList.toggle('hidden', !s);
   if (s) { ub.textContent = s.nome.split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase(); ub.title = s.nome; }
@@ -1981,6 +2335,12 @@ $('#view').addEventListener('click', async e => {
     if (el.dataset.inst === 'fechar') { lsSet('instalarFechado', '1'); atualizarInstalar(); toast('Você pode instalar depois pelo menu do navegador.'); return; }
     return instalarAgora();
   }
+  if ((el = t.closest('[data-mtab]'))) { manTab = el.dataset.mtab; return render(); }
+  if ((el = t.closest('[data-man]'))) { const a = el.dataset.man; if (a === 'perguntar') return perguntarIA(); if (a === 'novo') return novoManual(); if (a === 'pecas') return importarPecas(); if (a === 'buscaPeca') return buscarPeca(); return; }
+  if ((el = t.closest('[data-pag]'))) { const [m, p] = el.dataset.pag.split('|'); return verPagina(m, +p); }
+  if ((el = t.closest('[data-pagdl]'))) { const [m, p] = el.dataset.pagdl.split('|'); return baixarPagina(m, +p); }
+  if ((el = t.closest('[data-mdel]'))) { return excluirManual(el.dataset.mdel); }
+  if ((el = t.closest('[data-ia]'))) { return iaAcao(el.dataset.ia); }
   if ((el = t.closest('[data-perfil]'))) { return perfilAcao(el.dataset.perfil); }
   if ((el = t.closest('[data-perm]'))) { return salvarPermissoes(); }
   if ((el = t.closest('[data-cfg]'))) { return cfgAcao(el.dataset.cfg); }
