@@ -175,6 +175,14 @@ textarea.inp{min-height:110px;resize:vertical}
 .obs-item .thumbs{margin:6px 0 0}
 .obs-new{border-top:1px dashed var(--line);padding-top:14px}
 .os-det{display:flex;gap:8px;align-items:center;max-width:320px}
+/* Nuvem */
+.syncinfo{margin-left:auto;font-size:13px;padding:7px 13px;border-radius:20px;background:var(--card);box-shadow:var(--sh);white-space:nowrap;font-weight:600}
+.syncinfo.ok{color:var(--ok)} .syncinfo.erro,.syncinfo.local{color:var(--red)} .syncinfo.envio{color:var(--pri)} .syncinfo.offline{color:var(--pend)}
+.th .nuvem{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;border-radius:8px;padding:1px 6px}
+.th.lazy{display:grid;place-items:center;color:#cbd5e1;font-size:22px;background:#2b3550}
+.th.lazy img{position:absolute;inset:0}
+.cfg label{font-weight:600;display:block;margin-bottom:6px}
+.cfg .inp{margin-bottom:14px}
 /* Modal / visualizador / toast */
 .modal-bg{position:fixed;inset:0;background:rgba(10,20,40,.55);display:grid;place-items:center;z-index:50;padding:16px}
 .modal{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -213,6 +221,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 /* ---------- Celular ---------- */
 @media (max-width:820px){
+  .syncinfo{font-size:11.5px;padding:5px 10px}
   .app{flex-direction:column}
   .sidebar{position:fixed;bottom:0;top:auto;left:0;right:0;width:auto;height:auto;padding:6px 6px max(6px,env(safe-area-inset-bottom));z-index:40;flex-direction:row;box-shadow:0 -4px 16px rgba(0,0,0,.15)}
   .brand,.side-foot{display:none}
@@ -247,11 +256,12 @@ textarea.inp{min-height:110px;resize:vertical}
       <button data-nav="atendimentos"><span class="ico">☰</span><span>Atendimentos</span><span class="badge" id="bAt">0</span></button>
       <button data-nav="cobranca"><span class="ico">$</span><span>Cobrança</span><span class="badge" id="bCob">0</span></button>
       <button data-nav="teste"><span class="ico">❄</span><span>Teste de Frio</span></button>
+      <button data-nav="config"><span class="ico">⚙</span><span>Ajustes</span></button>
     </nav>
-    <div class="side-foot">Dados salvos neste aparelho<br>Versão <span id="versao"></span></div>
+    <div class="side-foot">Versão <span id="versao"></span></div>
   </aside>
   <main>
-    <header class="topbar"><img class="toplogo" id="topLogo" alt="BLS"><div><h1 id="titulo">Início</h1><div class="sub" id="subtitulo"></div></div></header>
+    <header class="topbar"><img class="toplogo" id="topLogo" alt="BLS"><div><h1 id="titulo">Início</h1><div class="sub" id="subtitulo"></div></div><button id="syncInfo" class="syncinfo"></button></header>
     <section id="view"></section>
   </main>
 </div>
@@ -274,7 +284,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.1.0';
+const APP_VERSAO = '1.2.0';
 /* =========================================================
    Utilidades
    ========================================================= */
@@ -288,6 +298,9 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
 
 function norm(a) { if (a) { if (a.os === undefined) a.os = ''; if (!a.observacoes) a.observacoes = []; } return a; }
 const getAtend = async id => norm(await DB.get('atend', id));
+const numTxt = a => a.numero ? '#' + a.numero : '#—';
+const idsMidias = a => [...a.etiqueta, ...a.horimetros, ...a.audios, ...a.midias, ...a.observacoes.flatMap(o => o.fotos)];
+async function gravar(a) { a.atualizadoEm = Date.now(); a.sujo = true; await DB.put('atend', a); if (window.Sync) Sync.agendar(); }
 const osTag = a => a.os ? `<span class="os-tag">OS ${esc(a.os)}</span>` : '';
 
 const ST = {
@@ -548,7 +561,7 @@ function checklist(a) {
 }
 async function novoAtendimento() {
   const lista = await DB.all('atend');
-  const numero = lista.reduce((m, a) => Math.max(m, a.numero || 0), 0) + 1;
+  const numero = Sync.cfg() ? null : lista.reduce((m, a) => Math.max(m, a.numero || 0), 0) + 1;
   const agora = Date.now();
   const a = {
     id: uid(), numero, criadoEm: agora, atualizadoEm: agora,
@@ -559,7 +572,7 @@ async function novoAtendimento() {
     observacoes: [],
     historico: [{ status:'pendente', em:agora }],
   };
-  await DB.put('atend', a);
+  await gravar(a);
   go('form', a.id);
 }
 
@@ -582,15 +595,16 @@ async function go(view, id = null) {
 $('#nav').onclick = e => { const b = e.target.closest('[data-nav]'); if (b) go(b.dataset.nav); };
 
 async function render() {
-  const lista = (await DB.all('atend')).map(norm).sort((a, b) => b.numero - a.numero);
+  const lista = (await DB.all('atend')).map(norm).filter(a => !a.excluido).sort((a, b) => b.criadoEm - a.criadoEm);
   const nPend = lista.filter(a => a.status === 'pendente').length;
   const nCob = lista.filter(a => a.status === 'em_espera' || a.status === 'enviado').length;
   $('#bAt').textContent = nPend; $('#bAt').classList.toggle('hidden', !nPend); $('#bAt').title = 'Pendentes';
   $('#bCob').textContent = nCob; $('#bCob').classList.toggle('hidden', !nCob);
   const navAtivo = { form:'atendimentos', detalhe:'atendimentos' }[atual.view] || atual.view;
   document.querySelectorAll('#nav [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === navAtivo));
-  const fn = { inicio:vInicio, atendimentos:vAtendimentos, cobranca:vCobranca, teste:vTeste, form:vForm, detalhe:vDetalhe }[atual.view];
+  const fn = { inicio:vInicio, atendimentos:vAtendimentos, cobranca:vCobranca, teste:vTeste, config:vConfig, form:vForm, detalhe:vDetalhe }[atual.view];
   await fn(lista);
+  carregarPendentes();
 }
 function cab(t, s = '') { $('#titulo').textContent = t; $('#subtitulo').textContent = s; }
 
@@ -598,7 +612,7 @@ function cab(t, s = '') { $('#titulo').textContent = t; $('#subtitulo').textCont
 function cardPend(a) {
   const ck = checklist(a), ok = ck.filter(c => c.ok).length, falta = ck.filter(c => !c.ok);
   return `<div class="acard" data-open="${a.id}">
-    <div class="row1"><span class="num">#${a.numero} ${osTag(a)}</span>${pill(a.status)}</div>
+    <div class="row1"><span class="num">${numTxt(a)} ${osTag(a)}</span>${pill(a.status)}</div>
     <div class="placa">${esc(a.placa) || '<span style="color:var(--muted);font-weight:500">Sem placa</span>'}</div>
     <div class="meta"><span>👤 ${esc(a.tecnico) || '—'}</span><span>🕑 ${fmtCurto(a.criadoEm)}</span></div>
     <div class="prog ${ok === 6 ? 'full' : ''}"><i style="width:${ok/6*100}%"></i></div>
@@ -618,7 +632,7 @@ async function vInicio(lista) {
 /* ---------- Atendimentos (todos) ---------- */
 function linha(a) {
   return `<div class="rowc" data-open="${a.id}">
-    <div class="n">#${a.numero}</div>
+    <div class="n">${numTxt(a)}</div>
     <div><span class="p">${esc(a.placa) || '—'}</span><div class="t">${esc(a.tecnico) || '—'}${a.os ? ' · OS ' + esc(a.os) : ''}</div></div>
     <div class="hide-m"><span class="lbl">Criado</span>${fmtCurto(a.criadoEm)}</div>
     <div class="hide-m"><span class="lbl">Finalizado</span>${a.finalizadoEm ? fmtCurto(a.finalizadoEm) : '—'}</div>
@@ -661,7 +675,7 @@ async function vCobranca(lista) {
     <div class="toolbar"><label class="switch"><input type="checkbox" id="chkConc" ${filtros.concluidos ? 'checked' : ''}> Mostrar concluídos</label></div>
     ${vis.length ? `<div class="rows">${vis.map(a => `
       <div class="cob">
-        <div class="info" data-open="${a.id}"><span class="num" style="font-weight:700;color:var(--muted)">#${a.numero}</span>
+        <div class="info" data-open="${a.id}"><span class="num" style="font-weight:700;color:var(--muted)">${numTxt(a)}</span>
           <div><div class="p">${esc(a.placa)}</div><div class="t" style="color:var(--muted);font-size:13.5px">${a.os ? 'OS ' + esc(a.os) + ' · ' : ''}${esc(a.tecnico)} · finalizado ${fmtCurto(a.finalizadoEm)}</div></div></div>
         ${segCob(a)}
       </div>`).join('')}</div>` : '<div class="empty">Nada para cobrar no momento.</div>'}`;
@@ -674,8 +688,8 @@ async function mudarCobranca(id, s) {
   COB.slice(idx + 1).forEach(x => a.cobranca[x] = null);   // voltou etapa: limpa as datas seguintes
   a.status = s; a.cobranca[s] = Date.now(); a.atualizadoEm = Date.now();
   a.historico.push({ status:s, em:a.cobranca[s] });
-  await DB.put('atend', a);
-  toast(`#${a.numero} marcado como ${ST[s].label}`);
+  await gravar(a);
+  toast(`${numTxt(a)} marcado como ${ST[s].label}`);
   render();
 }
 
@@ -688,19 +702,24 @@ async function vTeste() {
 /* ---------- Formulário do atendimento ---------- */
 async function carregarMidias(ids) { return (await Promise.all(ids.map(id => DB.get('midia', id)))).filter(Boolean); }
 function thumb(m, editavel, campo) {
+  const del = editavel ? `<button class="del" data-delm="${m.id}" data-campo="${campo}" title="Remover">✕</button>` : '';
+  if (!m.blob) return `<div class="th lazy" data-ver="${m.id}" data-lazy="${m.id}">${m.tipo === 'video' ? '🎬<span class="play">▶</span>' : '⋯'}${del}</div>`;
   const u = mkUrl(m.blob);
   const inner = m.tipo === 'video' ? `<video src="${u}#t=0.1" muted playsinline preload="metadata"></video><span class="play">▶</span>` : `<img src="${u}" alt="">`;
-  return `<div class="th" data-ver="${m.id}">${inner}${editavel ? `<button class="del" data-delm="${m.id}" data-campo="${campo}" title="Remover">✕</button>` : ''}</div>`;
+  const nuvem = Sync.cfg() && !m.driveId ? '<span class="nuvem" title="Aguardando envio para a nuvem">⏳</span>' : '';
+  return `<div class="th" data-ver="${m.id}">${inner}${nuvem}${del}</div>`;
 }
 function audioItem(m, editavel) {
-  return `<div class="audio-item"><audio controls preload="metadata" src="${mkUrl(m.blob)}"></audio>${editavel ? `<button class="del" data-delm="${m.id}" data-campo="audios" title="Remover">✕</button>` : ''}</div>`;
+  const del = editavel ? `<button class="del" data-delm="${m.id}" data-campo="audios" title="Remover">✕</button>` : '';
+  if (!m.blob) return `<div class="audio-item" data-lazyaudio="${m.id}"><span style="flex:1;color:var(--muted);font-size:13px;padding:8px">Carregando áudio…</span>${del}</div>`;
+  return `<div class="audio-item"><audio controls preload="metadata" src="${mkUrl(m.blob)}"></audio>${del}</div>`;
 }
 async function vForm(lista) {
   const a = await getAtend(atual.id);
   if (!a) return go('inicio');
   if (a.status !== 'pendente') return go('detalhe', a.id);
   cur = a;
-  cab(`Atendimento #${a.numero}`, `Aberto em ${fmtCurto(a.criadoEm)}`);
+  cab(`Atendimento ${numTxt(a)}`, `Aberto em ${fmtCurto(a.criadoEm)}`);
   const [et, ho, au, mi] = await Promise.all([a.etiqueta, a.horimetros, a.audios, a.midias].map(carregarMidias));
   const tecnicos = [...new Set(lista.map(x => x.tecnico.trim()).filter(Boolean))];
   const ok = Object.fromEntries(checklist(a).map(c => [c.k, c.ok]));
@@ -755,9 +774,8 @@ function agendarSalvar() {
 async function salvar() {
   clearTimeout(saveT); saveT = 0;
   if (!cur) return;
-  cur.atualizadoEm = Date.now();
   if (cur.tecnico.trim()) lsSet('ultimoTecnico', cur.tecnico.trim());
-  await DB.put('atend', cur);
+  await gravar(cur);
   const si = $('#saveInfo'); if (si) { si.textContent = '✓ Salvo ' + new Date().toLocaleTimeString('pt-BR'); si.style.color = 'var(--ok)'; }
   checklist(cur).forEach(c => { const f = document.querySelector(`[data-f="${c.k}"]`); if (f) { f.classList.toggle('okf', c.ok); if (c.ok) f.classList.remove('erro'); } });
 }
@@ -767,7 +785,7 @@ async function anexar(atendId, campo, blob, tipo, local) {
   const m = { id:uid(), atendId, campo, tipo, blob, mime:blob.type, criadoEm:Date.now(), local };
   await DB.put('midia', m);
   if (cur && cur.id === atendId) { cur[campo].push(m.id); await salvar(); }
-  else { const a = await getAtend(atendId); a[campo].push(m.id); await DB.put('atend', a); }
+  else { const a = await getAtend(atendId); a[campo].push(m.id); await gravar(a); }
 }
 async function abrirCamera(campo) {
   await flush();
@@ -794,20 +812,20 @@ async function finalizar() {
     await modal({ titulo:'Faltam itens obrigatórios', corpo:`Preencha para conseguir finalizar:<ul>${falta.map(f => `<li>${f.label}</li>`).join('')}</ul>`, botoes:[{ label:'Entendi', valor:true }] });
     return;
   }
-  if (!await confirmar(`Finalizar atendimento #${cur.numero}?`, 'Depois de finalizado, o atendimento vai para a <b>Cobrança</b> como <b>Em espera</b> e não poderá mais ser editado.', 'Finalizar')) return;
+  if (!await confirmar(`Finalizar atendimento ${numTxt(cur)}?`, 'Depois de finalizado, o atendimento vai para a <b>Cobrança</b> como <b>Em espera</b> e não poderá mais ser editado.', 'Finalizar')) return;
   const agora = Date.now();
   Object.assign(cur, { status:'em_espera', finalizadoEm:agora, atualizadoEm:agora });
   cur.cobranca.em_espera = agora;
   cur.historico.push({ status:'em_espera', em:agora });
-  await DB.put('atend', cur);
+  await gravar(cur);
   toast('Atendimento finalizado ✓');
   go('detalhe', cur.id);
 }
 async function excluir() {
-  if (!await confirmar(`Excluir atendimento #${cur.numero}?`, 'Todas as fotos, vídeos e áudios dele serão apagados. Isso não pode ser desfeito.', 'Excluir', 'danger')) return;
+  if (!await confirmar(`Excluir atendimento ${numTxt(cur)}?`, 'Todas as fotos, vídeos e áudios dele serão apagados. Isso não pode ser desfeito.', 'Excluir', 'danger')) return;
   const a = cur; cur = null; clearTimeout(saveT); saveT = 0;
   for (const id of [...a.etiqueta, ...a.horimetros, ...a.audios, ...a.midias, ...a.observacoes.flatMap(o => o.fotos)]) await DB.del('midia', id);
-  await DB.del('atend', a.id);
+  if (Sync.cfg()) { a.excluido = true; await gravar(a); } else await DB.del('atend', a.id);
   toast('Atendimento excluído');
   go('inicio');
 }
@@ -845,7 +863,7 @@ async function vDetalhe() {
   const a = await getAtend(atual.id);
   if (!a) return go('atendimentos');
   if (a.status === 'pendente') return go('form', a.id);
-  cab(`Atendimento #${a.numero}`, `Finalizado em ${fmtCurto(a.finalizadoEm)}`);
+  cab(`Atendimento ${numTxt(a)}`, `Finalizado em ${fmtCurto(a.finalizadoEm)}`);
   const [et, ho, au, mi] = await Promise.all([a.etiqueta, a.horimetros, a.audios, a.midias].map(carregarMidias));
   if (obsDraft.id !== a.id) { obsDraft = { id:a.id, texto:'', fotos:[] }; }
   const obsHtml = (await Promise.all(a.observacoes.slice().reverse().map(async o => {
@@ -864,6 +882,7 @@ async function vDetalhe() {
         <div><span class="lbl">Técnico</span><b>${esc(a.tecnico)}</b></div>
         <div><span class="lbl">Aberto em</span><b>${fmtCurto(a.criadoEm)}</b></div>
         <div><span class="lbl">Finalizado em</span><b>${fmtCurto(a.finalizadoEm)}</b></div>
+        <div><span class="lbl">Arquivos</span><b>${a.pasta ? `<a href="${esc(a.pasta)}" target="_blank" rel="noopener" style="color:var(--pri)">📁 Abrir pasta no Drive</a>` : '—'}</b></div>
       </div>
       <div class="det-sec" style="margin-top:20px"><h3>Cobrança</h3>${segCob(a)}</div>
     </div>
@@ -889,7 +908,7 @@ async function vDetalhe() {
   dOS.oninput = () => {
     $('#osInfo').textContent = '';
     clearTimeout(dOS._t);
-    dOS._t = setTimeout(async () => { const x = await getAtend(a.id); x.os = dOS.value.trim(); x.atualizadoEm = Date.now(); await DB.put('atend', x); $('#osInfo').textContent = '✓ Salvo'; }, 500);
+    dOS._t = setTimeout(async () => { const x = await getAtend(a.id); x.os = dOS.value.trim(); await gravar(x); $('#osInfo').textContent = '✓ Salvo'; }, 500);
   };
   $('#obsTxt').oninput = e => { obsDraft.texto = e.target.value; };
 }
@@ -916,8 +935,7 @@ async function obsAcao(acao) {
       await DB.put('midia', m); fotos.push(m.id);
     }
     a.observacoes.push({ id:uid(), texto, fotos, em:Date.now() });
-    a.atualizadoEm = Date.now();
-    await DB.put('atend', a);
+    await gravar(a);
     obsDraft = { id, texto:'', fotos:[] };
     toast('Observação salva'); freeUrls(); render();
   }
@@ -927,12 +945,18 @@ async function excluirObs(oid) {
   const a = await getAtend(atual.id); const o = a.observacoes.find(x => x.id === oid); if (!o) return;
   for (const f of o.fotos) await DB.del('midia', f);
   a.observacoes = a.observacoes.filter(x => x.id !== oid);
-  await DB.put('atend', a); freeUrls(); render();
+  await gravar(a); freeUrls(); render();
 }
 
 /* ---------- Visualizador ---------- */
 async function verMidia(id) {
   const m = await DB.get('midia', id); if (!m) return;
+  if (!m.blob) {
+    if (!m.driveId || !Sync.cfg()) return;
+    if (m.tipo === 'video') { window.open('https://drive.google.com/file/d/' + m.driveId + '/view', '_blank'); return; }
+    toast('Baixando...');
+    try { await Sync.baixar(m); } catch (e) { toast('Não foi possível baixar: ' + e.message); return; }
+  }
   const u = URL.createObjectURL(m.blob);
   const ext = (m.mime.split('/')[1] || 'bin').split(';')[0].replace('quicktime', 'mov');
   const nome = `${m.campo}-${new Date(m.criadoEm).toISOString().slice(0,19).replace(/[:T]/g, '-')}.${ext === 'jpeg' ? 'jpg' : ext}`;
@@ -945,6 +969,238 @@ async function verMidia(id) {
 }
 
 /* =========================================================
+   Nuvem: sincronização com o Google Drive (Apps Script)
+   ========================================================= */
+const paraB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+const deB64 = (s, mime) => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type:mime }); };
+function nomeArquivo(m) {
+  const ext = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp', 'video/mp4':'mp4', 'video/webm':'webm', 'video/quicktime':'mov',
+                'audio/webm':'webm', 'audio/mp4':'m4a', 'audio/ogg':'ogg', 'audio/mpeg':'mp3' }[(m.mime || '').split(';')[0]] || 'bin';
+  const nomes = { etiqueta:'Etiqueta', horimetros:'Horimetro', audios:'Audio', midias: m.tipo === 'video' ? 'Video' : 'Foto', observacoes:'Observacao' };
+  const d = new Date(m.criadoEm), p = n => String(n).padStart(2, '0');
+  return `${nomes[m.campo] || 'Arquivo'}_${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}_${m.id.slice(-4)}.${ext}`;
+}
+
+const Sync = {
+  rodando:false, denovo:false, t:0, mudou:false, estado:{ tipo:'', txt:'', dica:'' },
+  cfg() { try { const c = JSON.parse(lsGet('cfg') || 'null'); return c && c.url && c.chave ? c : null; } catch (e) { return null; } },
+  async api(acao, dados = {}, cfg = this.cfg()) {
+    let r;
+    try { r = await fetch(cfg.url, { method:'POST', body: JSON.stringify({ ...dados, acao, chave:cfg.chave }) }); }
+    catch (e) { throw new Error('Sem conexão com o servidor'); }
+    let j; try { j = await r.json(); } catch (e) { throw new Error('Resposta inválida do servidor (confira a URL e se a implantação está como "Qualquer pessoa")'); }
+    if (!j.ok) throw new Error(j.erro || 'Erro no servidor');
+    return j;
+  },
+  status(tipo, txt, dica = '') {
+    this.estado = { tipo, txt, dica };
+    const el = $('#syncInfo'); if (el) { el.className = 'syncinfo ' + tipo; el.textContent = txt; el.title = dica; }
+    const c = $('#cfgStatus'); if (c) c.textContent = txt + (dica ? ' — ' + dica : '');
+  },
+  agendar(ms = 1500) { clearTimeout(this.t); this.t = setTimeout(() => this.rodar(), ms); },
+  async qtdPendentes() { return (await DB.all('atend')).filter(a => a.sujo).length; },
+  async rodar() {
+    clearTimeout(this.t);
+    if (!this.cfg()) { this.status('local', '⚠ Sem nuvem', 'Toque para configurar'); return; }
+    if (this.rodando) { this.denovo = true; return; }
+    if (!navigator.onLine) { const n = await this.qtdPendentes(); this.status('offline', `📴 Sem internet${n ? ' · ' + n + ' a enviar' : ''}`); return; }
+    this.rodando = true; this.mudou = false;
+    try {
+      await this.enviar();
+      await this.receber();
+      this.status('ok', '☁ Sincronizado ' + new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }));
+    } catch (e) {
+      const n = await this.qtdPendentes();
+      this.status('erro', `⚠ Não sincronizado${n ? ' · ' + n + ' a enviar' : ''}`, e.message);
+    } finally {
+      this.rodando = false;
+      if (this.mudou) atualizarTela();
+      if (this.denovo) { this.denovo = false; this.agendar(300); }
+    }
+  },
+  async enviar() {
+    await flush();
+    const sujos = (await DB.all('atend')).map(norm).filter(a => a.sujo);
+    for (let a of sujos) {
+      if (!a.numero || !a.pastaId) a = await this.salvarRemoto(a);   // garante nº e pasta no Drive
+      const faltam = [];
+      for (const id of idsMidias(a)) { const m = await DB.get('midia', id); if (m && m.blob && !m.driveId) faltam.push(m); }
+      let i = 0;
+      for (const m of faltam) {
+        i++; this.status('envio', `⟳ Enviando ${numTxt(a)} · arquivo ${i}/${faltam.length}`);
+        m.driveId = await this.upload(m, a);
+        const atualM = await DB.get('midia', m.id); if (atualM) { atualM.driveId = m.driveId; await DB.put('midia', atualM); }
+      }
+      await this.salvarRemoto(norm(await DB.get('atend', a.id)) || a);
+      this.mudou = true;
+    }
+  },
+  async salvarRemoto(a) {
+    const env = { ...a }; delete env.sujo;
+    env._midias = [];
+    for (const id of idsMidias(a)) {
+      const m = await DB.get('midia', id);
+      if (m) env._midias.push({ id:m.id, campo:m.campo, tipo:m.tipo, mime:m.mime, criadoEm:m.criadoEm, local:m.local, driveId:m.driveId || null });
+    }
+    const r = (await this.api('salvar', { atend:env })).atend;
+    await this.aplicar(r);
+    return norm(await DB.get('atend', a.id)) || norm(r);
+  },
+  async aplicar(x) {
+    for (const i of (x._midias || [])) {
+      const m = await DB.get('midia', i.id);
+      if (!m) await DB.put('midia', { ...i, atendId:x.id, blob:null });
+      else if (!m.driveId && i.driveId) { m.driveId = i.driveId; await DB.put('midia', m); }
+    }
+    delete x._midias;
+    const l = norm(await DB.get('atend', x.id));
+    if (x.excluido) {
+      if (l) { for (const id of idsMidias(l)) await DB.del('midia', id); await DB.del('atend', x.id); this.mudou = true; }
+      return;
+    }
+    const base = { numero:x.numero, pasta:x.pasta, pastaId:x.pastaId };
+    if (cur && cur.id === x.id) Object.assign(cur, base);
+    if (l && l.sujo && l.atualizadoEm > x.atualizadoEm) { Object.assign(l, base); await DB.put('atend', l); return; }
+    if (cur && cur.id === x.id && saveT) return;   // técnico digitando agora
+    x.sujo = false;
+    await DB.put('atend', norm(x));
+    if (!l || l.atualizadoEm !== x.atualizadoEm || l.numero !== x.numero) this.mudou = true;
+  },
+  async receber() {
+    const desde = Number(lsGet('ultimoPull')) || 0;
+    const r = await this.api('listar', { desde });
+    for (const x of r.itens) await this.aplicar(x);
+    lsSet('ultimoPull', String(r.agora));
+  },
+  async upload(m, a) {
+    const b = m.blob, N = 4 * 1024 * 1024;
+    const mime = (b.type || m.mime || 'application/octet-stream').split(';')[0];
+    if (!b.size) return 'vazio';
+    let off = 0, sessao = null;
+    while (off < b.size) {
+      const parte = b.slice(off, off + N);
+      const r = await this.api('upload', { atendId:a.id, nome:nomeArquivo(m), mime, tamanho:b.size, offset:off, sessao, data: await paraB64(parte) });
+      off += parte.size;
+      if (r.fim) return r.driveId;
+      sessao = r.sessao;
+    }
+    throw new Error('Envio incompleto');
+  },
+  async baixar(m) {
+    const r = await this.api('baixar', { driveId:m.driveId });
+    m.blob = deB64(r.data, (m.mime || r.mime || '').split(';')[0] || r.mime);
+    await DB.put('midia', m);
+    return m.blob;
+  },
+};
+window.Sync = Sync;
+
+function atualizarTela() {
+  if (atual.view === 'form') { if (cur) $('#titulo').textContent = 'Atendimento ' + numTxt(cur); return; }
+  const ae = document.activeElement;
+  if (ae && /INPUT|TEXTAREA/.test(ae.tagName)) return;      // não atrapalha quem está digitando
+  if (document.querySelector('.modal-bg, .viewer') || !$('#cam').classList.contains('hidden')) return;
+  const y = window.scrollY; freeUrls(); render().then(() => window.scrollTo(0, y));
+}
+
+const baixando = new Set();
+function carregarPendentes() {
+  if (!Sync.cfg()) return;
+  document.querySelectorAll('[data-lazy],[data-lazyaudio]').forEach(el => {
+    const id = el.dataset.lazy || el.dataset.lazyaudio;
+    if (baixando.has(id)) return; baixando.add(id);
+    (async () => {
+      try {
+        const m = await DB.get('midia', id); if (!m || !m.driveId) return;
+        if (m.tipo === 'video') {
+          const r = await Sync.api('miniatura', { driveId:m.driveId });
+          if (r.data && el.isConnected) el.insertAdjacentHTML('afterbegin', `<img src="data:${r.mime};base64,${r.data}" alt="">`);
+          return;
+        }
+        const b = m.blob || await Sync.baixar(m);
+        if (!el.isConnected) return;
+        const del = el.querySelector('.del'); const delHtml = del ? del.outerHTML : '';
+        if (el.dataset.lazyaudio) el.outerHTML = audioItem(m, !!del);
+        else { el.classList.remove('lazy'); el.removeAttribute('data-lazy'); el.innerHTML = `<img src="${mkUrl(b)}" alt="">${delHtml}`; }
+      } catch (e) { /* tenta de novo na próxima tela */ }
+      finally { baixando.delete(id); }
+    })();
+  });
+}
+
+/* ---------- Ajustes ---------- */
+function linkConfig() { const c = Sync.cfg(); return location.origin + location.pathname + '#cfg=' + encodeURIComponent(btoa(JSON.stringify({ u:c.url, k:c.chave }))); }
+async function vConfig() {
+  cab('Ajustes', 'Conexão com o Google Drive');
+  const c = Sync.cfg() || { url:'', chave:'' };
+  $('#view').innerHTML = `
+    <div class="card cfg" style="max-width:660px">
+      <h3 style="margin-top:0">Nuvem (Google Drive)</h3>
+      <p style="color:var(--muted);margin-top:0">Com a nuvem conectada, os atendimentos de todos os aparelhos ficam juntos na planilha e as fotos/vídeos na pasta do Drive.</p>
+      <label>URL do servidor (App da Web)</label>
+      <input class="inp" id="cfgUrl" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(c.url)}">
+      <label>Chave de acesso</label>
+      <input class="inp" id="cfgChave" autocomplete="off" value="${esc(c.chave)}">
+      <div class="btnrow"><button class="btn" data-cfg="salvar">Salvar e testar</button>
+        ${Sync.cfg() ? '<button class="btn sec" data-cfg="sync">⟳ Sincronizar agora</button><button class="btn ghost" data-cfg="sair">Desconectar</button>' : ''}</div>
+      <div id="cfgStatus" style="margin-top:12px;font-size:14px;color:var(--muted)">${esc(Sync.estado.txt)}${Sync.estado.dica ? ' — ' + esc(Sync.estado.dica) : ''}</div>
+    </div>
+    ${Sync.cfg() ? `<div class="card cfg" style="max-width:660px;margin-top:14px">
+      <h3 style="margin-top:0">Conectar o celular dos técnicos</h3>
+      <p style="color:var(--muted);margin-top:0">Envie este link pelo WhatsApp. Ao abrir no celular, o app já fica conectado, sem digitar nada.</p>
+      <input class="inp" id="cfgLink" readonly value="${esc(linkConfig())}">
+      <div class="btnrow"><button class="btn sec" data-cfg="copiar">📋 Copiar link</button></div></div>` : ''}
+    <div class="card" style="max-width:660px;margin-top:14px;color:var(--muted);font-size:14px">Versão do app: <b>${APP_VERSAO}</b></div>`;
+}
+async function cfgAcao(acao) {
+  if (acao === 'salvar') {
+    const url = $('#cfgUrl').value.trim(), chave = $('#cfgChave').value.trim();
+    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { toast('Cole a URL do App da Web (começa com https://script.google.com/)'); return; }
+    if (!chave) { toast('Informe a chave de acesso.'); return; }
+    await conectar({ url, chave });
+  } else if (acao === 'sync') {
+    await Sync.rodar(); toast(Sync.estado.txt);
+  } else if (acao === 'sair') {
+    if (!await confirmar('Desconectar da nuvem?', 'Este aparelho deixa de enviar e receber atendimentos. Nada é apagado do Drive.', 'Desconectar', 'danger')) return;
+    lsSet('cfg', ''); lsSet('ultimoPull', '0'); await Sync.rodar(); render();
+  } else if (acao === 'copiar') {
+    const i = $('#cfgLink'); i.select();
+    try { await navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); }
+    toast('Link copiado');
+  }
+}
+async function conectar(c) {
+  toast('Testando conexão...');
+  try { await Sync.api('ping', {}, c); }
+  catch (e) { await modal({ titulo:'Não foi possível conectar', corpo:esc(e.message), botoes:[{ label:'OK', valor:1 }] }); return false; }
+  const anterior = Sync.cfg();
+  lsSet('cfg', JSON.stringify(c));
+  if (!anterior || anterior.url !== c.url) {
+    lsSet('ultimoPull', '0');
+    const locais = (await DB.all('atend')).map(norm).filter(a => !a.pastaId && !a.excluido);
+    if (locais.length) {
+      const r = await modal({ titulo:'Atendimentos deste aparelho',
+        corpo:`Existem <b>${locais.length}</b> atendimento(s) registrados só neste aparelho. O que fazer com eles?`,
+        botoes:[{ label:'Apagar (eram testes)', cls:'danger', valor:'apagar' }, { label:'Enviar para a nuvem', valor:'enviar' }] });
+      for (const a of locais) {
+        if (r === 'apagar') { for (const id of idsMidias(a)) await DB.del('midia', id); await DB.del('atend', a.id); }
+        else { a.numero = null; a.sujo = true; await DB.put('atend', a); }
+      }
+    }
+  }
+  toast('Conectado à nuvem ✓');
+  await Sync.rodar(); freeUrls(); render();
+  return true;
+}
+async function configPorLink() {
+  const m = location.hash.match(/#cfg=([^&]+)/); if (!m) return;
+  history.replaceState(null, '', location.pathname);
+  let d; try { d = JSON.parse(atob(decodeURIComponent(m[1]))); } catch (e) { toast('Link de configuração inválido'); return; }
+  if (await confirmar('Conectar este aparelho?', 'Este link conecta o app à nuvem da BLS Refrigeração, para enviar os atendimentos ao Drive.', 'Conectar')) await conectar({ url:d.u, chave:d.k });
+}
+$('#syncInfo').onclick = () => Sync.cfg() ? Sync.rodar() : go('config');
+
+/* =========================================================
    Cliques (delegação)
    ========================================================= */
 $('#view').addEventListener('click', async e => {
@@ -954,6 +1210,7 @@ $('#view').addEventListener('click', async e => {
   if ((el = t.closest('[data-deldraft]'))) { e.stopPropagation(); obsDraft.fotos.splice(+el.dataset.deldraft, 1); freeUrls(); return render(); }
   if ((el = t.closest('[data-delobs]'))) { return excluirObs(el.dataset.delobs); }
   if ((el = t.closest('[data-obs]'))) { return obsAcao(el.dataset.obs); }
+  if ((el = t.closest('[data-cfg]'))) { return cfgAcao(el.dataset.cfg); }
   if ((el = t.closest('[data-cob]')))  { return mudarCobranca(el.closest('[data-id]').dataset.id, el.dataset.cob); }
   if ((el = t.closest('[data-ver]')))  { return verMidia(el.dataset.ver); }
   if ((el = t.closest('[data-cam]')))  { return abrirCamera(el.dataset.cam); }
@@ -995,7 +1252,13 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sav
     $('#topLogo').src = $('#logoImg').src;
     await DB.open();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-    render();
+    await render();
+    await configPorLink();
+    Sync.rodar();
+    setInterval(() => { if (!document.hidden) Sync.rodar(); }, 60 * 1000);
+    window.addEventListener('online', () => Sync.rodar());
+    window.addEventListener('offline', () => Sync.rodar());
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) Sync.rodar(); });
   } catch (e) {
     $('#view').innerHTML = `<div class="empty">Não foi possível abrir o armazenamento local deste navegador.<br>${esc(e.message || e)}</div>`;
   }
