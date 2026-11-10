@@ -237,9 +237,12 @@ textarea.inp{min-height:110px;resize:vertical}
 .brb button.on.ruim{background:var(--red);border-color:var(--red);color:#fff}
 .temps{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 12px}
 .temp label{font-size:13.5px}
-.tw{position:relative}
-.tw span{position:absolute;right:12px;top:12px;color:var(--muted);pointer-events:none}
-.tw .inp{padding-right:42px}
+.tw{display:flex;gap:6px;align-items:flex-start}
+.tw .pm{flex-shrink:0;width:44px;height:46px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:20px;font-weight:700;color:var(--pri)}
+.tw .pm:active{background:var(--pri-l)}
+.twi{position:relative;flex:1;min-width:0}
+.twi span{position:absolute;right:12px;top:12px;color:var(--muted);pointer-events:none}
+.twi .inp{padding-right:38px}
 .graf{margin-top:8px;background:#fbfcfe;border:1px solid var(--line);border-radius:12px;padding:10px 6px}
 .valid{background:#f7f9fc;border-left:4px solid var(--acc);padding:12px 14px;border-radius:0 10px 10px 0;font-size:13.5px;color:var(--muted);line-height:1.55}
 .brl{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:14.5px}
@@ -417,7 +420,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.7.1';
+const APP_VERSAO = '1.7.2';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -966,7 +969,9 @@ async function vTesteForm(lista, testes) {
       </div>
       <div class="field"><div class="flabel">Temperaturas</div>
         <div class="temps">${TEMPS.map(([k, l], i) => `<div class="tf temp" data-f="temps.${k}"><label>${l}${i ? ' <span class="req">*</span>' : ''}</label>
-          <div class="tw"><input class="inp" type="number" step="0.1" inputmode="decimal" data-k="temps.${k}" value="${esc(t.temps[k])}" placeholder="0"><span>°C</span></div></div>`).join('')}</div>
+          <div class="tw"><button class="pm" type="button" data-pm="${k}" title="Trocar sinal (positivo/negativo)">±</button>
+            <div class="twi"><input class="inp" type="text" inputmode="decimal" autocomplete="off" data-k="temps.${k}" value="${esc(String(t.temps[k] ?? '').replace('.', ','))}" placeholder="0"><span>°C</span></div></div></div>`).join('')}</div>
+        <p style="margin:2px 0 0;font-size:12.5px;color:var(--muted)">Toque em <b>±</b> para deixar a temperatura negativa.</p>
         <div class="graf" id="graf">${grafico(t)}</div>
       </div>
       <div class="field"><div class="flabel">Validade do teste (180 dias)</div>
@@ -983,6 +988,10 @@ function testeInput(e) {
   if (!el || !cur || cur.tipo !== 'teste' || atual.view !== 'testeForm') return;
   const k = el.dataset.k;
   let v = el.value;
+  if (k.startsWith('temps.')) {
+    const limpo = v.replace(/[^0-9,.\-]/g, '').replace(/(?!^)-/g, '');
+    if (limpo !== v) { v = el.value = limpo; }
+  }
   if (k === 'placa') { const p = el.selectionStart; v = el.value = v.toUpperCase().replace(/\s/g, ''); try { el.setSelectionRange(p, p); } catch (er) {} }
   setPath(cur, k, v);
   const f = el.closest('[data-f]'); if (f) f.classList.remove('erro');
@@ -991,6 +1000,17 @@ function testeInput(e) {
   agendarSalvar();
 }
 $('#view').addEventListener('input', testeInput);
+function trocarSinal(k) {
+  if (!cur || cur.tipo !== 'teste') return;
+  const el = document.querySelector(`[data-k="temps.${k}"]`); if (!el) return;
+  let v = el.value.trim();
+  v = v.startsWith('-') ? v.slice(1) : '-' + v;
+  el.value = v; cur.temps[k] = v;
+  const f = el.closest('[data-f]'); if (f) f.classList.remove('erro');
+  $('#graf').innerHTML = grafico(cur);
+  agendarSalvar();
+  if (v === '-') el.focus();
+}
 function marcarBR(el) {
   if (!cur || cur.tipo !== 'teste') return;
   const [g, k] = el.dataset.set.split('.');
@@ -1824,6 +1844,7 @@ $('#view').addEventListener('click', async e => {
   if ((el = t.closest('[data-cfg]'))) { return cfgAcao(el.dataset.cfg); }
   if ((el = t.closest('[data-usu]'))) { return usuarioAcao(el.dataset.usu, el.dataset.op); }
   if ((el = t.closest('[data-set]'))) { return marcarBR(el); }
+  if ((el = t.closest('[data-pm]'))) { return trocarSinal(el.dataset.pm); }
   if ((el = t.closest('[data-cob]')))  { return mudarCobranca(el.closest('[data-id]').dataset.id, el.dataset.cob); }
   if ((el = t.closest('[data-ver]')))  { return verMidia(el.dataset.ver); }
   if ((el = t.closest('[data-cam]')))  { return abrirCamera(el.dataset.cam); }
