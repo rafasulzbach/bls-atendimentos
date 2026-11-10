@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.6';
+const VERSAO_API = '1.7';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -648,7 +648,10 @@ const ACOES_MANUAIS = {
   // ----- administrador -----
   iaConfig(q) {
     const p = props();
-    if (q.chave) p.setProperty('GEMINI_KEY', String(q.chave).replace(/[\s"'`]/g, ''));
+    // atenção: "q.chave" é a chave de acesso do app; a chave do Gemini vem em "q.chaveIA"
+    if (q.chaveIA) p.setProperty('GEMINI_KEY', String(q.chaveIA).replace(/[\s"'`]/g, ''));
+    const atual = p.getProperty('GEMINI_KEY') || '';
+    if (atual && atual === p.getProperty('CHAVE')) p.deleteProperty('GEMINI_KEY');   // limpa a chave errada salva antes
     if (q.modelo) p.setProperty('GEMINI_MODELO', String(q.modelo).trim());
     const k = p.getProperty('GEMINI_KEY') || '';
     return { temChave: !!k, inicio: k.slice(0, 3), final: k ? k.slice(-4) : '', tamanho: k.length, modelo: p.getProperty('GEMINI_MODELO') || MODELO_PADRAO };
