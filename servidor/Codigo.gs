@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.5';
+const VERSAO_API = '1.6';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -569,9 +569,13 @@ function gemini(parts, sistema) {
   const modelo = p.getProperty('GEMINI_MODELO') || MODELO_PADRAO;
   const body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json' } };
   if (sistema) body.systemInstruction = { parts: [{ text: sistema }] };
-  const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
-    method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true,
-  });
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent';
+  // 1ª tentativa: chave no cabeçalho; se o Google recusar a chave, tenta de novo com a chave na URL (formato aceito pelas chaves novas "AQ.")
+  let r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true });
+  if (r.getResponseCode() === 400 || r.getResponseCode() === 401 || r.getResponseCode() === 403) {
+    const r2 = UrlFetchApp.fetch(url + '?key=' + encodeURIComponent(key), { method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true });
+    if (r2.getResponseCode() === 200 || r2.getResponseCode() === 429) r = r2;
+  }
   const code = r.getResponseCode(), txt = r.getContentText();
   if (code === 429) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.');
   if (code !== 200) { let m = ''; try { m = JSON.parse(txt).error.message; } catch (e) { m = txt.slice(0, 200); } throw new Error('Erro da IA (' + code + '): ' + m); }
@@ -635,10 +639,10 @@ const ACOES_MANUAIS = {
   // ----- administrador -----
   iaConfig(q) {
     const p = props();
-    if (q.chave) p.setProperty('GEMINI_KEY', String(q.chave).trim());
+    if (q.chave) p.setProperty('GEMINI_KEY', String(q.chave).replace(/[\s"'`]/g, ''));
     if (q.modelo) p.setProperty('GEMINI_MODELO', String(q.modelo).trim());
     const k = p.getProperty('GEMINI_KEY') || '';
-    return { temChave: !!k, final: k ? k.slice(-4) : '', modelo: p.getProperty('GEMINI_MODELO') || MODELO_PADRAO };
+    return { temChave: !!k, inicio: k.slice(0, 3), final: k ? k.slice(-4) : '', tamanho: k.length, modelo: p.getProperty('GEMINI_MODELO') || MODELO_PADRAO };
   },
   iaTestar() {
     const r = gemini([{ text: 'Responda apenas o JSON {"resposta":"ok"}' }]);

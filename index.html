@@ -456,7 +456,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '1.9.2';
+const APP_VERSAO = '1.9.3';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -2001,7 +2001,7 @@ async function iaAcao(a) {
     const r = await Sync.api('iaConfig', dados);
     if ($('#iaModelo') && !$('#iaModelo').value) $('#iaModelo').value = r.modelo;
     if (a === 'salvar') { $('#iaChave').value = ''; toast('Configuração da IA salva ✓'); }
-    st(r.temChave ? `Chave configurada (termina em <b>${esc(r.final)}</b>) · modelo <b>${esc(r.modelo)}</b>` : '<b style="color:var(--red)">Nenhuma chave configurada.</b>');
+    st(r.temChave ? `Chave configurada: começa com <b>${esc(r.inicio || '')}</b>, termina em <b>${esc(r.final)}</b>${r.tamanho ? `, ${r.tamanho} caracteres` : ''} · modelo <b>${esc(r.modelo)}</b>` : '<b style="color:var(--red)">Nenhuma chave configurada.</b>');
   } catch (e) { st(`<span style="color:var(--red)">${esc(e.message)}</span>`); }
 }
 async function salvarPermissoes() {
