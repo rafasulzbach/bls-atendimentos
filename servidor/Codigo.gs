@@ -13,11 +13,15 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '1.2';
+const VERSAO_API = '1.3';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
              'Criado por', 'Alterado por', 'Servidor', 'JSON'];
+const CAB_TESTE = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Data do teste', 'Avaliador', 'Local', 'Veículo (marca/ano)',
+             'Equipamento (marca/modelo)', 'Nº série', 'Estacionário', 'Elétrico', 'Horímetro', 'Providências motor',
+             'Vedação', 'Aspecto geral', 'Providências câmara', 'Temp. inicial', 'Temp. 1h', 'Temp. 2h', 'Temp. 3h',
+             'Válido até', 'Criado por', 'Alterado por', 'Excluído', 'Servidor', 'JSON'];
 const CAB_USU = ['E-mail', 'Nome', 'Situação', 'Criado em', 'Último acesso'];
 const STATUS = { pendente: 'Pendente', em_espera: 'Em espera', enviado: 'Enviado', concluido: 'Concluído' };
 const DIAS = 24 * 60 * 60 * 1000;
@@ -55,6 +59,14 @@ function configurar() {
   }
   sh.getRange(1, 1, 1, CAB.length).setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
   sh.setFrozenRows(1);
+  // aba de testes de frio
+  let st = ss.getSheetByName('Testes de Frio');
+  if (!st) {
+    st = ss.insertSheet('Testes de Frio');
+    st.getRange(1, 1, 1, CAB_TESTE.length).setValues([CAB_TESTE])
+      .setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
+    st.setFrozenRows(1);
+  }
   // aba de usuários
   let su = ss.getSheetByName('Usuarios');
   if (!su) {
@@ -94,6 +106,7 @@ function ss() {
 }
 function planilha() { return ss().getSheetByName('Atendimentos'); }
 function abaUsuarios() { return ss().getSheetByName('Usuarios'); }
+function abaTestes() { return ss().getSheetByName('Testes de Frio'); }
 
 /* ---------- Entrada da API ---------- */
 function doGet() {
@@ -213,17 +226,27 @@ const ACOES = {
     const lock = LockService.getScriptLock();
     lock.waitLock(30000);
     try {
-      const sh = planilha();
       const a = q.atend;
       if (!a || !a.id) throw new Error('Atendimento inválido');
+      const teste = a.tipo === 'teste';
+      const sh = teste ? abaTestes() : planilha();
+      if (!sh) throw new Error('Execute a função "configurar" no servidor para criar a aba de testes.');
+      const cab = teste ? CAB_TESTE : CAB;
       const lin = acharLinha(sh, a.id);
       let atual = null;
-      if (lin) { try { atual = JSON.parse(sh.getRange(lin, CAB.length).getValue()); } catch (e) {} }
+      if (lin) { try { atual = JSON.parse(sh.getRange(lin, cab.length).getValue()); } catch (e) {} }
       if (atual && (atual.atualizadoEm || 0) > (a.atualizadoEm || 0)) return { atend: atual };
 
-      a.numero = atual && atual.numero ? atual.numero : proximoNumero(sh);
+      a.numero = atual && atual.numero ? atual.numero : proximoNumero(sh, teste ? 'ULTIMO_TESTE' : 'ULTIMO_NUM');
       a.criadoPor = (atual && atual.criadoPor) || a.criadoPor || sess.n;
       a.alteradoPor = sess.n;
+      delete a.sujo;
+      if (teste) {
+        a.servidorEm = Date.now();
+        const lt = linhaTeste(a);
+        if (lin) sh.getRange(lin, 1, 1, lt.length).setValues([lt]); else sh.appendRow(lt);
+        return { atend: a };
+      }
       const pasta = pastaDo(a);
       a.pastaId = pasta.getId();
       a.pasta = pasta.getUrl();
@@ -247,15 +270,17 @@ const ACOES = {
     const lock = LockService.getScriptLock();
     lock.waitLock(30000);
     try {
-      const sh = planilha();
       const agora = Date.now();
-      const n = sh.getLastRow() - 1;
-      if (n < 1) return { agora: agora, itens: [] };
       const desde = Number(q.desde) || 0;
-      const vals = sh.getRange(2, CAB.length - 1, n, 2).getValues();
       const itens = [];
-      vals.forEach(function (v) {
-        if (Number(v[0]) > desde) { try { itens.push(JSON.parse(v[1])); } catch (e) {} }
+      [[planilha(), CAB], [abaTestes(), CAB_TESTE]].forEach(function (par) {
+        const sh = par[0], cab = par[1];
+        if (!sh) return;
+        const n = sh.getLastRow() - 1;
+        if (n < 1) return;
+        sh.getRange(2, cab.length - 1, n, 2).getValues().forEach(function (v) {
+          if (Number(v[0]) > desde) { try { itens.push(JSON.parse(v[1])); } catch (e) {} }
+        });
       });
       return { agora: agora, itens: itens };
     } finally {
@@ -329,6 +354,20 @@ function linhaDe(a) {
   ];
 }
 
+function linhaTeste(t) {
+  const m = t.motor || {}, c = t.camara || {}, tp = t.temps || {};
+  const num = function (v) { const x = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(x) ? '' : x; };
+  const dataTeste = t.data ? new Date(t.data + 'T12:00:00') : '';
+  const validade = dataTeste ? new Date(dataTeste.getTime() + 180 * DIAS) : '';
+  return [
+    t.id, t.numero, t.excluido ? 'Excluído' : (t.status === 'concluido' ? 'Concluído' : 'Pendente'), t.os || '', t.placa || '',
+    dataTeste, t.avaliador || '', t.local || '', t.veiculo || '', t.equipamento || '', t.serie || '',
+    m.estacionario || '', m.eletrico || '', m.horimetro || '', m.prov || '', c.vedacao || '', c.aspecto || '', c.prov || '',
+    num(tp.t0), num(tp.t1), num(tp.t2), num(tp.t3), validade,
+    t.criadoPor || '', t.alteradoPor || '', t.excluido ? 'Sim' : '', t.servidorEm || 0, JSON.stringify(t),
+  ];
+}
+
 function acharLinha(sh, id) {
   const n = sh.getLastRow() - 1;
   if (n < 1) return 0;
@@ -337,15 +376,15 @@ function acharLinha(sh, id) {
   return 0;
 }
 
-function proximoNumero(sh) {
+function proximoNumero(sh, chave) {
   const p = props();
-  let n = Number(p.getProperty('ULTIMO_NUM')) || 0;
+  let n = Number(p.getProperty(chave)) || 0;
   const linhas = sh.getLastRow() - 1;
   if (linhas > 0) {
     sh.getRange(2, 2, linhas, 1).getValues().forEach(function (v) { n = Math.max(n, Number(v[0]) || 0); });
   }
   n++;
-  p.setProperty('ULTIMO_NUM', String(n));
+  p.setProperty(chave, String(n));
   return n;
 }
 
