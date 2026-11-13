@@ -84,6 +84,13 @@ main{flex:1;min-width:0;display:flex;flex-direction:column}
 .hero .btn:hover{background:#eaf1ff}
 
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.atalhos{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.atalho{display:flex;align-items:center;gap:14px;padding:18px;border-radius:16px;background:linear-gradient(120deg,#142269 0%,#1f45b5 75%,#2f7cc4 100%);color:#fff;text-align:left;box-shadow:var(--sh);border-left:5px solid var(--acc);min-width:0}
+.atalho:hover{filter:brightness(1.08)}
+.atalho .ai{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.atalho .ai svg{width:26px;height:26px}
+.atalho b{display:block;font-size:16px}
+.atalho small{display:block;color:#d6e2ff;font-size:12.5px;margin-top:2px}
 .acard{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:16px;cursor:pointer;border:1px solid transparent;transition:.15s;display:flex;flex-direction:column;gap:10px}
 .acard:hover{border-color:#c8d6ec;transform:translateY(-1px)}
 .acard .row1{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -403,6 +410,10 @@ textarea.inp{min-height:110px;resize:vertical}
   .topbar h1{font-size:21px}
   #view{padding:10px 14px 110px}
   .hero{flex-direction:column;align-items:stretch;padding:22px}
+  .atalhos{grid-template-columns:1fr;gap:10px}
+  .atalho{padding:14px 16px}
+  .nav.sete button{font-size:8.6px!important;letter-spacing:-.35px}
+  .nav.sete .ico{width:20px;height:20px}
   .hero .btn{width:100%}
   .rowc{grid-template-columns:1fr auto;gap:6px 10px}
   .rowc .hide-m{display:none}
@@ -423,6 +434,7 @@ textarea.inp{min-height:110px;resize:vertical}
       <button data-nav="inicio"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9"/></svg></span><span>Início</span></button>
       <button data-nav="atendimentos"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M9 11h6M9 15h4"/></svg></span><span>Atendimentos</span><span class="badge" id="bAt">0</span></button>
       <button data-nav="cobranca"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9.5v5M18 9.5v5"/></svg></span><span>Cobrança</span><span class="badge" id="bCob">0</span></button>
+      <button data-nav="recebimento"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5.5h12v10h-12z"/><path d="M13.5 9h4l3 3.5v3h-7z"/><circle cx="5.5" cy="17.5" r="2"/><circle cx="17" cy="17.5" r="2"/></svg></span><span>Recebimento</span><span class="badge" id="bRec">0</span></button>
       <button data-nav="teste"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17"/><path d="m9 3.5 3 2 3-2M9 20.5l3-2 3 2M4.2 10.6l3.4-.6-1.1-3.3M19.8 13.4l-3.4.6 1.1 3.3M19.8 10.6l-3.4-.6 1.1-3.3M4.2 13.4l3.4.6-1.1 3.3"/></svg></span><span>Teste de Frio</span></button>
       <button data-nav="manuais"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6.5A2.5 2.5 0 0 0 4 20.5 2.5 2.5 0 0 0 6.5 23H19v-5"/><path d="M8 7h7M8 11h5"/></svg></span><span>Manuais</span></button>
       <button data-nav="config"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><span id="lblCfg">Ajustes</span><span class="badge hidden" id="bCfg">0</span></button>
@@ -458,7 +470,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.1.0';
+const APP_VERSAO = '2.2.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -475,7 +487,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e) {} };
 function norm(a) { if (a) { if (a.os === undefined) a.os = ''; if (!a.observacoes) a.observacoes = []; } return a; }
 const getAtend = async id => norm(await DB.get('atend', id));
 const numTxt = a => a.numero ? '#' + a.numero : '#—';
-const idsMidias = a => [...(a.etiqueta || []), ...(a.horimetros || []), ...(a.audios || []), ...(a.midias || []), ...(a.observacoes || []).flatMap(o => o.fotos || [])];
+const idsMidias = a => [...(a.fotos || []), ...(a.etiqueta || []), ...(a.horimetros || []), ...(a.audios || []), ...(a.midias || []), ...(a.observacoes || []).flatMap(o => o.fotos || [])];
 const Sessao = {
   get() { try { const x = JSON.parse(lsGet('sessao') || 'null'); return x && x.token && x.exp > Date.now() ? x : null; } catch (e) { return null; } },
   set(x) { lsSet('sessao', JSON.stringify(x)); },
@@ -780,15 +792,17 @@ $('#nav').onclick = e => { const b = e.target.closest('[data-nav]'); if (b) go(b
 
 async function render() {
   const todos = (await DB.all('atend')).map(norm).filter(a => !a.excluido).sort((a, b) => b.criadoEm - a.criadoEm);
-  const lista = todos.filter(a => a.tipo !== 'teste'), testes = todos.filter(a => a.tipo === 'teste');
+  const lista = todos.filter(a => !a.tipo), testes = todos.filter(a => a.tipo === 'teste'), recs = todos.filter(a => a.tipo === 'recebimento').map(normRec);
   const nPend = lista.filter(a => a.status === 'pendente').length;
   const nCob = lista.filter(a => a.status === 'em_espera' || a.status === 'enviado').length;
   $('#bAt').textContent = nPend; $('#bAt').classList.toggle('hidden', !nPend); $('#bAt').title = 'Pendentes';
   $('#bCob').textContent = nCob; $('#bCob').classList.toggle('hidden', !nCob);
-  const navAtivo = { form:'atendimentos', detalhe:'atendimentos', testeForm:'teste', testeDet:'teste' }[atual.view] || atual.view;
+  const nRec = recs.filter(r => r.status !== 'concluido').length;
+  $('#bRec').textContent = nRec; $('#bRec').classList.toggle('hidden', !nRec); $('#bRec').title = 'Em aberto';
+  const navAtivo = { form:'atendimentos', detalhe:'atendimentos', testeForm:'teste', testeDet:'teste', recForm:'recebimento', recDet:'recebimento' }[atual.view] || atual.view;
   document.querySelectorAll('#nav [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === navAtivo));
-  const fn = { inicio:vInicio, atendimentos:vAtendimentos, cobranca:vCobranca, teste:vTeste, testeForm:vTesteForm, testeDet:vTesteDet, manuais:vManuais, config:() => Sessao.admin() ? vConfig() : vPerfil(), form:vForm, detalhe:vDetalhe }[atual.view];
-  await fn(lista, testes);
+  const fn = { inicio:vInicio, atendimentos:vAtendimentos, cobranca:vCobranca, teste:vTeste, testeForm:vTesteForm, testeDet:vTesteDet, manuais:vManuais, recebimento:vRecebimento, recForm:vRecForm, recDet:vRecDet, config:() => Sessao.admin() ? vConfig() : vPerfil(), form:vForm, detalhe:vDetalhe }[atual.view];
+  await fn(lista, testes, recs);
   carregarPendentes();
 }
 function cab(t, s = '') { $('#titulo').textContent = t; $('#subtitulo').textContent = s; }
@@ -804,15 +818,26 @@ function cardPend(a) {
     ${falta.length ? `<div class="falta">${falta.map(f => `<span>Falta: ${f.label}</span>`).join('')}</div>` : '<div style="color:var(--ok);font-size:13px">Tudo preenchido — falta só finalizar</div>'}
   </div>`;
 }
-async function vInicio(lista) {
+const ICO = {
+  atend:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9z"/><path d="M12 10v6M9 13h6"/></svg>',
+  rec:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5.5h12v10h-12z"/><path d="M13.5 9h4l3 3.5v3h-7z"/><circle cx="5.5" cy="17.5" r="2"/><circle cx="17" cy="17.5" r="2"/></svg>',
+  teste:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17"/></svg>',
+};
+async function vInicio(lista, testes, recs) {
   cab('Início', new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' }));
   const pend = lista.filter(a => a.status === 'pendente');
+  const recAb = (recs || []).filter(r => r.status !== 'concluido');
+  const at = [
+    podeVer('atendimentos') && `<button class="atalho" data-act="novo"><span class="ai">${ICO.atend}</span><span><b>Novo atendimento</b><small>Registrar serviço no equipamento</small></span></button>`,
+    podeVer('recebimento') && `<button class="atalho" data-act="novoRec"><span class="ai">${ICO.rec}</span><span><b>Recebimento</b><small>Fotos do veículo na chegada</small></span></button>`,
+    podeVer('teste') && `<button class="atalho" data-act="novoTeste"><span class="ai">${ICO.teste}</span><span><b>Teste de frio</b><small>Novo teste do equipamento</small></span></button>`,
+  ].filter(Boolean).join('');
   $('#view').innerHTML = `
     <div id="instBanner">${bannerInstalar()}</div>
-    <div class="hero"><div><h2>Novo atendimento</h2><p>Ao criar, o atendimento já fica salvo como <b>Pendente</b>. Todos os itens são obrigatórios para finalizar.</p></div>
-      <button class="btn big" data-act="novo">＋ Novo atendimento</button></div>
-    <div class="sec-title">Atendimentos pendentes <span class="count">${pend.length}</span></div>
-    ${pend.length ? `<div class="grid">${pend.map(cardPend).join('')}</div>` : '<div class="empty">Nenhum atendimento pendente. 👍</div>'}`;
+    ${at ? `<div class="sec-title" style="margin-top:0">Acesso rápido</div><div class="atalhos">${at}</div>` : ''}
+    ${recAb.length && podeVer('recebimento') ? `<div class="sec-title">Recebimentos em aberto <span class="count">${recAb.length}</span></div><div class="rows">${recAb.map(linhaRec).join('')}</div>` : ''}
+    ${podeVer('atendimentos') ? `<div class="sec-title">Atendimentos pendentes <span class="count">${pend.length}</span></div>
+    ${pend.length ? `<div class="grid">${pend.map(cardPend).join('')}</div>` : '<div class="empty">Nenhum atendimento pendente. 👍</div>'}` : ''}`;
 }
 
 /* ---------- Atendimentos (todos) ---------- */
@@ -1161,6 +1186,124 @@ async function imprimirTeste() {
 }
 
 
+/* ---------- Recebimento de veículos ---------- */
+const filtrosR = { busca:'' };
+function normRec(r) { r.fotos = r.fotos || []; r.obs = r.obs || ''; r.os = r.os || ''; r.placa = r.placa || ''; r.historico = r.historico || []; return r; }
+const pillRec = r => r.status === 'concluido' ? '<span class="pill s-ok">Registrado</span>' : '<span class="pill s-pend">Em aberto</span>';
+function linhaRec(r) {
+  normRec(r);
+  return `<div class="rowc" data-open="${r.id}">
+    <div class="n">${numTxt(r)}</div>
+    <div><span class="p">${esc(r.placa) || '—'}</span><div class="t">${r.os ? 'OS ' + esc(r.os) + ' · ' : ''}${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}</div></div>
+    <div class="hide-m"><span class="lbl">Recebido em</span>${fmtCurto(r.criadoEm)}</div>
+    <div class="hide-m"><span class="lbl">Por</span>${esc(r.criadoPor || '—')}</div>
+    <div>${pillRec(r)}</div>
+  </div>`;
+}
+async function vRecebimento(lista, testes, recs) {
+  cab('Recebimento', 'Fotos dos veículos na chegada');
+  const b = filtrosR.busca.trim().toLowerCase();
+  const vis = recs.filter(r => !b || [r.placa, r.os, r.obs, '#' + r.numero].some(x => String(x || '').toLowerCase().includes(b)));
+  $('#view').innerHTML = `
+    <div class="hero"><div><h2>Novo recebimento</h2><p>Fotografe o veículo na chegada (todos os lados, avarias, painel). As fotos ficam com data, hora e endereço.</p></div>
+      <button class="btn big" data-act="novoRec">＋ Novo recebimento</button></div>
+    <div class="toolbar" style="margin-top:20px"><input class="search" id="buscaR" placeholder="Buscar placa, OS ou observação..." value="${esc(filtrosR.busca)}"></div>
+    ${vis.length ? `<div class="rows">${vis.map(linhaRec).join('')}</div>` : '<div class="empty">Nenhum recebimento registrado.</div>'}`;
+  const inp = $('#buscaR');
+  inp.oninput = () => { filtrosR.busca = inp.value; clearTimeout(inp._t); inp._t = setTimeout(async () => { await render(); const n = $('#buscaR'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+}
+async function novoRecebimento() {
+  const agora = Date.now();
+  const r = { id:uid(), tipo:'recebimento', numero:null, criadoEm:agora, atualizadoEm:agora, status:'pendente',
+    placa:'', os:'', fotos:[], obs:'', criadoPor:quem(), historico:[{ status:'pendente', em:agora, por:quem() }] };
+  await gravar(r);
+  go('recForm', r.id);
+}
+async function vRecForm() {
+  const r = await getAtend(atual.id);
+  if (!r) return go('recebimento');
+  normRec(r);
+  if (r.status === 'concluido') return go('recDet', r.id);
+  cur = r;
+  cab(`Recebimento ${numTxt(r)}`, 'Aberto em ' + fmtCurto(r.criadoEm));
+  const fotos = await carregarMidias(r.fotos);
+  $('#view').innerHTML = `
+    <div class="formtop"><button class="btn ghost" data-nav2="recebimento">← Voltar</button><span class="pill s-pend">Em aberto</span><span class="saveinfo" id="saveInfo">✓ Salvo</span></div>
+    <div class="fields">
+      <div class="field${r.placa.trim() ? ' okf' : ''}" data-f="placa"><div class="flabel">Placa <span class="req">*</span></div>
+        <input class="inp placa-inp" id="rPlaca" autocomplete="off" placeholder="ABC1D23" maxlength="10" value="${esc(r.placa)}"></div>
+      <div class="field" data-f="os"><div class="flabel">Ordem de serviço <small>Opcional — pode ser preenchida depois</small></div>
+        <input class="inp" id="rOS" inputmode="numeric" autocomplete="off" placeholder="Nº da OS" value="${esc(r.os)}"></div>
+      <div class="field${r.fotos.length ? ' okf' : ''}" data-f="fotos"><div class="flabel">Fotos do veículo <span class="req">*</span> <small>sem limite</small></div>
+        <div class="thumbs">${fotos.map(m => thumb(m, true, 'fotos')).join('')}</div>
+        <button class="btn sec" data-cam="fotos">📷 Tirar foto / 🎥 gravar vídeo</button></div>
+      <div class="field" data-f="obs"><div class="flabel">Observações <small>avarias, riscos, itens faltando, nível de combustível...</small></div>
+        <textarea class="inp" id="rObs" placeholder="Ex.: risco na porta lateral direita, para-choque trincado...">${esc(r.obs)}</textarea></div>
+    </div>
+    <div class="finalbar">
+      <button class="btn danger" data-act="excluirRec" title="Excluir recebimento">🗑</button>
+      <button class="btn fin" data-act="concluirRec">✓ Concluir recebimento</button>
+    </div>`;
+  const pl = $('#rPlaca'), os = $('#rOS'), ob = $('#rObs');
+  pl.oninput = () => { const p = pl.selectionStart; pl.value = pl.value.toUpperCase().replace(/\s/g, ''); pl.setSelectionRange(p, p); cur.placa = pl.value; pl.closest('.field').classList.toggle('okf', !!pl.value); agendarSalvar(); };
+  os.oninput = () => { cur.os = os.value.trim(); agendarSalvar(); };
+  ob.oninput = () => { cur.obs = ob.value; agendarSalvar(); };
+}
+async function concluirRec() {
+  await flush();
+  const falta = [!cur.placa.trim() && { k:'placa', label:'Placa' }, !cur.fotos.length && { k:'fotos', label:'Pelo menos uma foto do veículo' }].filter(Boolean);
+  document.querySelectorAll('.field').forEach(f => f.classList.toggle('erro', falta.some(c => c.k === f.dataset.f)));
+  if (falta.length) {
+    await modal({ titulo:'Faltam itens obrigatórios', corpo:`Preencha para concluir:<ul>${falta.map(f => `<li>${f.label}</li>`).join('')}</ul>`, botoes:[{ label:'Entendi', valor:true }] });
+    return;
+  }
+  if (!await confirmar(`Concluir recebimento ${numTxt(cur)}?`, 'Depois de concluído, as fotos e as observações ficam guardadas e não podem mais ser alteradas (só a OS).', 'Concluir')) return;
+  const agora = Date.now();
+  cur.status = 'concluido'; cur.concluidoEm = agora;
+  cur.historico.push({ status:'concluido', em:agora, por:quem() });
+  await gravar(cur);
+  toast('Recebimento registrado ✓');
+  go('recDet', cur.id);
+}
+async function excluirRec() {
+  if (!await confirmar(`Excluir recebimento ${numTxt(cur)}?`, 'As fotos e vídeos dele serão apagados. Isso não pode ser desfeito.', 'Excluir', 'danger')) return;
+  const r = cur; cur = null; clearTimeout(saveT); saveT = 0;
+  for (const id of r.fotos) await DB.del('midia', id);
+  if (Sync.cfg()) { r.excluido = true; await gravar(r); } else await DB.del('atend', r.id);
+  toast('Recebimento excluído');
+  go('recebimento');
+}
+async function vRecDet() {
+  const r = await getAtend(atual.id);
+  if (!r) return go('recebimento');
+  normRec(r);
+  if (r.status !== 'concluido') return go('recForm', r.id);
+  cab(`Recebimento ${numTxt(r)}`, 'Recebido em ' + fmtCurto(r.criadoEm));
+  const fotos = await carregarMidias(r.fotos);
+  $('#view').innerHTML = `
+    <div class="formtop"><button class="btn ghost" data-nav2="recebimento">← Voltar</button></div>
+    <div class="card">
+      <div class="det-head"><div><span class="lbl">Placa</span><h2>${esc(r.placa)}</h2></div>${pillRec(r)}</div>
+      <div class="kv">
+        <div><span class="lbl">Ordem de serviço</span><div class="os-det"><input class="inp" id="detOS" inputmode="numeric" autocomplete="off" placeholder="Informar nº da OS" value="${esc(r.os)}" style="padding:8px 12px;font-size:15px;font-weight:600"></div><small id="osInfo" style="color:var(--ok);font-size:12px"></small></div>
+        <div><span class="lbl">Recebido em</span><b>${fmtCurto(r.criadoEm)}</b></div>
+        <div><span class="lbl">Registrado por</span><b>${esc(r.criadoPor || '—')}</b></div>
+        <div><span class="lbl">Concluído em</span><b>${fmtCurto(r.concluidoEm)}</b></div>
+        <div><span class="lbl">Arquivos</span><b>${r.pasta ? `<a href="${esc(r.pasta)}" target="_blank" rel="noopener" style="color:var(--pri)">📁 Abrir pasta no Drive</a>` : '—'}</b></div>
+      </div>
+    </div>
+    <div class="card det-sec"><h3>Fotos do veículo (${fotos.length})</h3>${fotos.length ? `<div class="thumbs">${fotos.map(m => thumb(m, false, 'fotos')).join('')}</div>` : '<div style="color:var(--muted)">—</div>'}</div>
+    <div class="card det-sec"><h3>Observações</h3>${r.obs.trim() ? `<div class="desc">${esc(r.obs)}</div>` : '<div style="color:var(--muted)">Nenhuma observação.</div>'}</div>
+    <div class="card det-sec"><h3>Histórico</h3><div class="timeline">${r.historico.map(h => `<div>${h.status === 'concluido' ? '<span class="pill s-ok">Registrado</span>' : '<span class="pill s-pend">Aberto</span>'} ${fmtCurto(h.em)}${h.por ? ' · ' + esc(h.por) : ''}</div>`).join('')}</div>
+      ${Sessao.admin() ? '<div class="btnrow" style="margin-top:12px"><button class="btn danger" data-act="excluirAdm">🗑 Excluir recebimento</button></div>' : ''}</div>`;
+  const dOS = $('#detOS');
+  dOS.oninput = () => {
+    $('#osInfo').textContent = '';
+    clearTimeout(dOS._t);
+    dOS._t = setTimeout(async () => { const x = await getAtend(r.id); x.os = dOS.value.trim(); await gravar(x); $('#osInfo').textContent = '✓ Salvo'; }, 500);
+  };
+}
+
 /* ---------- Formulário do atendimento ---------- */
 async function carregarMidias(ids) { return (await Promise.all(ids.map(id => DB.get('midia', id)))).filter(Boolean); }
 function thumb(m, editavel, campo) {
@@ -1238,9 +1381,9 @@ function agendarSalvar() {
 async function salvar() {
   clearTimeout(saveT); saveT = 0;
   if (!cur) return;
-  if (cur.tipo !== 'teste' && cur.tecnico.trim()) lsSet('ultimoTecnico', cur.tecnico.trim());
+  if (!cur.tipo && cur.tecnico.trim()) lsSet('ultimoTecnico', cur.tecnico.trim());
   await gravar(cur);
-  if (cur.tipo === 'teste') { const si = $('#saveInfo'); if (si) { si.textContent = '✓ Salvo ' + new Date().toLocaleTimeString('pt-BR'); si.style.color = 'var(--ok)'; } return; }
+  if (cur.tipo) { const si = $('#saveInfo'); if (si) { si.textContent = '✓ Salvo ' + new Date().toLocaleTimeString('pt-BR'); si.style.color = 'var(--ok)'; } return; }
   const si = $('#saveInfo'); if (si) { si.textContent = '✓ Salvo ' + new Date().toLocaleTimeString('pt-BR'); si.style.color = 'var(--ok)'; }
   checklist(cur).forEach(c => { const f = document.querySelector(`[data-f="${c.k}"]`); if (f) { f.classList.toggle('okf', c.ok); if (c.ok) f.classList.remove('erro'); } });
 }
@@ -1255,11 +1398,12 @@ async function anexar(atendId, campo, blob, tipo, local) {
 async function abrirCamera(campo) {
   await flush();
   const id = cur.id;
-  const titulos = { etiqueta:'Etiqueta nº de série', horimetros:'Horímetros', midias:'Fotos / vídeos do atendimento' };
+  const titulos = { etiqueta:'Etiqueta nº de série', horimetros:'Horímetros', midias:'Fotos / vídeos do atendimento', fotos:'Fotos do veículo' };
+  const view = atual.view;
   Cam.open({
-    titulo: titulos[campo], allowVideo: campo === 'midias', unico: campo === 'etiqueta',
+    titulo: titulos[campo], allowVideo: campo === 'midias' || campo === 'fotos', unico: campo === 'etiqueta',
     onCapture: (blob, tipo, local) => anexar(id, campo, blob, tipo, local),
-    onClose: () => { if (atual.view === 'form' && atual.id === id) { freeUrls(); render(); } },
+    onClose: () => { if (atual.view === view && atual.id === id) { freeUrls(); render(); } },
   });
 }
 async function removerMidia(mid, campo) {
@@ -1298,14 +1442,14 @@ async function excluir() {
 async function excluirAdm() {
   if (!Sessao.admin()) return;
   const a = await getAtend(atual.id); if (!a) return;
-  const teste = a.tipo === 'teste';
-  const nome = (teste ? 'teste de frio ' : 'atendimento ') + numTxt(a) + (a.placa ? ' (' + a.placa + ')' : '');
+  const teste = a.tipo === 'teste', rec = a.tipo === 'recebimento';
+  const nome = (teste ? 'teste de frio ' : rec ? 'recebimento ' : 'atendimento ') + numTxt(a) + (a.placa ? ' (' + a.placa + ')' : '');
   if (!await confirmar(`Excluir ${nome}?`, teste ? 'Os dados do teste serão apagados de todos os aparelhos e da planilha.'
-      : 'O atendimento sai de todos os aparelhos e da planilha, e a pasta com fotos e vídeos vai para a lixeira do Drive.', 'Excluir', 'danger')) return;
+      : (rec ? 'O recebimento' : 'O atendimento') + ' sai de todos os aparelhos e da planilha, e a pasta com fotos e vídeos vai para a lixeira do Drive.', 'Excluir', 'danger')) return;
   for (const id of idsMidias(a)) await DB.del('midia', id);
   if (Sync.cfg()) { a.excluido = true; await gravar(a); } else await DB.del('atend', a.id);
-  toast((teste ? 'Teste' : 'Atendimento') + ' excluído');
-  go(teste ? 'teste' : 'atendimentos');
+  toast((teste ? 'Teste' : rec ? 'Recebimento' : 'Atendimento') + ' excluído');
+  go(teste ? 'teste' : rec ? 'recebimento' : 'atendimentos');
 }
 
 /* ---------- Gravação de áudio (descrição) ---------- */
@@ -2111,7 +2255,7 @@ const Sync = {
 window.Sync = Sync;
 
 function atualizarTela() {
-  if (atual.view === 'form' || atual.view === 'testeForm') { if (cur) $('#titulo').textContent = (cur.tipo === 'teste' ? 'Teste de frio ' : 'Atendimento ') + numTxt(cur); return; }
+  if (atual.view === 'form' || atual.view === 'testeForm' || atual.view === 'recForm') { if (cur) $('#titulo').textContent = ({ teste:'Teste de frio ', recebimento:'Recebimento ' }[cur.tipo] || 'Atendimento ') + numTxt(cur); return; }
   const ae = document.activeElement;
   if (ae && /INPUT|TEXTAREA/.test(ae.tagName)) return;      // não atrapalha quem está digitando
   if (document.querySelector('.modal-bg, .viewer') || !$('#cam').classList.contains('hidden')) return;
@@ -2450,7 +2594,7 @@ async function verificarPendentes() {
   } catch (e) {}
 }
 /* ---------- Perfil, nome e permissões ---------- */
-const NOMES_ABAS = { atendimentos:'Atendimentos', cobranca:'Cobrança', teste:'Teste de Frio', manuais:'Manuais' };
+const NOMES_ABAS = { atendimentos:'Atendimentos', recebimento:'Recebimento de veículos', cobranca:'Cobrança', teste:'Teste de Frio', manuais:'Manuais' };
 const Perfil = {
   get() { try { return JSON.parse(lsGet('perfil') || 'null'); } catch (e) { return null; } },
   async carregar() {
@@ -2468,14 +2612,14 @@ const Perfil = {
 };
 function abasLiberadas() {
   const s = Sessao.get(); if (!s) return [];
-  if (s.admin) return ['atendimentos', 'cobranca', 'teste', 'manuais'];
+  if (s.admin) return ['atendimentos', 'recebimento', 'cobranca', 'teste', 'manuais'];
   const p = Perfil.get();
   if (p && p.email === s.usuario && Array.isArray(p.abas)) return p.abas;
-  return ['atendimentos', 'teste', 'manuais'];
+  return ['atendimentos', 'recebimento', 'teste', 'manuais'];
 }
 const podeVer = aba => abasLiberadas().includes(aba);
 function podeVerView(v) {
-  const aba = { atendimentos:'atendimentos', cobranca:'cobranca', teste:'teste', testeForm:'teste', testeDet:'teste', manuais:'manuais' }[v];
+  const aba = { atendimentos:'atendimentos', form:'atendimentos', detalhe:'atendimentos', recebimento:'recebimento', recForm:'recebimento', recDet:'recebimento', cobranca:'cobranca', teste:'teste', testeForm:'teste', testeDet:'teste', manuais:'manuais' }[v];
   return !aba || podeVer(aba);
 }
 async function salvarNome(nome) {
@@ -2543,8 +2687,9 @@ function aplicarPerfil() {
   const s = Sessao.get();
   document.querySelector('[data-nav="config"]').classList.toggle('hidden', !s);
   $('#lblCfg').textContent = s && s.admin ? 'Ajustes' : 'Perfil';
-  ['atendimentos', 'cobranca', 'teste', 'manuais'].forEach(a => document.querySelector(`[data-nav="${a}"]`).classList.toggle('hidden', !!s && !podeVer(a)));
-  $('#nav').classList.toggle('seis', document.querySelectorAll('#nav [data-nav]:not(.hidden)').length > 5);
+  ['atendimentos', 'recebimento', 'cobranca', 'teste', 'manuais'].forEach(a => document.querySelector(`[data-nav="${a}"]`).classList.toggle('hidden', !!s && !podeVer(a)));
+  const nVis = document.querySelectorAll('#nav [data-nav]:not(.hidden)').length;
+  $('#nav').classList.toggle('seis', nVis > 5); $('#nav').classList.toggle('sete', nVis > 6);
   const ub = $('#userBtn');
   ub.classList.toggle('hidden', !s);
   if (s) { ub.textContent = s.nome.split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase(); ub.title = s.nome; }
@@ -2594,6 +2739,9 @@ $('#view').addEventListener('click', async e => {
     if (act === 'finalizar') return finalizar();
     if (act === 'excluir') return excluir();
     if (act === 'novoTeste') return novoTeste();
+    if (act === 'novoRec') return novoRecebimento();
+    if (act === 'concluirRec') return concluirRec();
+    if (act === 'excluirRec') return excluirRec();
     if (act === 'concluirTeste') return concluirTeste();
     if (act === 'excluirTeste') return excluirTeste();
     if (act === 'reabrirTeste') return reabrirTeste();
@@ -2603,6 +2751,7 @@ $('#view').addEventListener('click', async e => {
   if ((el = t.closest('[data-open]'))) {
     const a = await getAtend(el.dataset.open);
     if (a.tipo === 'teste') return go(a.status === 'concluido' ? 'testeDet' : 'testeForm', a.id);
+    if (a.tipo === 'recebimento') return go(a.status === 'concluido' ? 'recDet' : 'recForm', a.id);
     return go(a.status === 'pendente' ? 'form' : 'detalhe', a.id);
   }
 });

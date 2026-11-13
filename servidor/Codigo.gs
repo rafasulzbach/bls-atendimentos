@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.2';
+const VERSAO_API = '2.3';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -22,9 +22,11 @@ const CAB_TESTE = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Data do teste', 'Avali
              'Equipamento (marca/modelo)', 'Nº série', 'Estacionário', 'Elétrico', 'Horímetro', 'Providências motor',
              'Vedação', 'Aspecto geral', 'Providências câmara', 'Temp. inicial', 'Temp. 1h', 'Temp. 2h', 'Temp. 3h',
              'Válido até', 'Criado por', 'Alterado por', 'Excluído', 'Servidor', 'JSON'];
+const CAB_REC = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Recebido em', 'Concluído em', 'Fotos', 'Observações', 'Pasta',
+             'Criado por', 'Alterado por', 'Excluído', 'Servidor', 'JSON'];
 const CAB_USU = ['E-mail', 'Nome (Google)', 'Situação', 'Criado em', 'Último acesso', 'Categoria', 'Nome no app'];
-const ABAS = ['atendimentos', 'cobranca', 'teste', 'manuais'];                       // abas que podem ser liberadas
-const PERM_PADRAO = { tecnico: ['atendimentos', 'teste', 'manuais'], geral: ['atendimentos', 'cobranca', 'teste', 'manuais'], v2: true };
+const ABAS = ['atendimentos', 'recebimento', 'cobranca', 'teste', 'manuais'];                       // abas que podem ser liberadas
+const PERM_PADRAO = { tecnico: ['atendimentos', 'recebimento', 'teste', 'manuais'], geral: ['atendimentos', 'recebimento', 'cobranca', 'teste', 'manuais'], v2: true, v3: true };
 const STATUS = { pendente: 'Pendente', em_espera: 'Em espera', enviado: 'Enviado', concluido: 'Concluído' };
 const DIAS = 24 * 60 * 60 * 1000;
 
@@ -126,6 +128,25 @@ function abaTestes() {
   return st;
 }
 
+function abaRecebimentos() {
+  const s = ss();
+  let st = s.getSheetByName('Recebimentos');
+  if (!st) {
+    st = s.insertSheet('Recebimentos');
+    st.getRange(1, 1, 1, CAB_REC.length).setValues([CAB_REC]).setFontWeight('bold').setBackground('#142269').setFontColor('#ffffff');
+    st.setFrozenRows(1);
+  }
+  return st;
+}
+function pastaRecebimentos() {
+  const p = props();
+  const id = p.getProperty('PASTA_REC');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  const f = DriveApp.getFolderById(PASTA_ID).createFolder('Recebimentos');
+  p.setProperty('PASTA_REC', f.getId());
+  return f;
+}
+
 /* ---------- Entrada da API ---------- */
 function doGet() {
   return ContentService.createTextOutput('BLS Atendimentos API ' + VERSAO_API + ' — funcionando.');
@@ -189,6 +210,7 @@ function permissoes() {
     const p = JSON.parse(props().getProperty('PERMISSOES') || 'null');
     if (p && p.tecnico && p.geral) {
       if (!p.v2) { p.tecnico.push('manuais'); p.geral.push('manuais'); p.v2 = true; props().setProperty('PERMISSOES', JSON.stringify(p)); }
+      if (!p.v3) { p.tecnico.push('recebimento'); p.geral.push('recebimento'); p.v3 = true; props().setProperty('PERMISSOES', JSON.stringify(p)); }
       return p;
     }
   } catch (e) {}
@@ -288,16 +310,16 @@ const ACOES = {
     try {
       const a = q.atend;
       if (!a || !a.id) throw new Error('Atendimento inválido');
-      const teste = a.tipo === 'teste';
-      const sh = teste ? abaTestes() : planilha();
+      const teste = a.tipo === 'teste', rec = a.tipo === 'recebimento';
+      const sh = teste ? abaTestes() : rec ? abaRecebimentos() : planilha();
       if (!sh) throw new Error('Execute a função "configurar" no servidor para criar a aba de testes.');
-      const cab = teste ? CAB_TESTE : CAB;
+      const cab = teste ? CAB_TESTE : rec ? CAB_REC : CAB;
       const lin = acharLinha(sh, a.id);
       let atual = null;
       if (lin) { try { atual = JSON.parse(sh.getRange(lin, cab.length).getValue()); } catch (e) {} }
       if (atual && (atual.atualizadoEm || 0) > (a.atualizadoEm || 0)) return { atend: atual };
 
-      a.numero = atual && atual.numero ? atual.numero : proximoNumero(sh, teste ? 'ULTIMO_TESTE' : 'ULTIMO_NUM');
+      a.numero = atual && atual.numero ? atual.numero : proximoNumero(sh, teste ? 'ULTIMO_TESTE' : rec ? 'ULTIMO_REC' : 'ULTIMO_NUM');
       a.criadoPor = (atual && atual.criadoPor) || a.criadoPor || sess.n;
       a.alteradoPor = sess.n;
       delete a.sujo;
@@ -307,7 +329,7 @@ const ACOES = {
         if (lin) sh.getRange(lin, 1, 1, lt.length).setValues([lt]); else sh.appendRow(lt);
         return { atend: a };
       }
-      const pasta = pastaDo(a);
+      const pasta = pastaDo(a, rec ? pastaRecebimentos() : null);
       a.pastaId = pasta.getId();
       a.pasta = pasta.getUrl();
       const nome = nomePasta(a);
@@ -316,7 +338,7 @@ const ACOES = {
       delete a.sujo;
       a.servidorEm = Date.now();
 
-      const linha = linhaDe(a);
+      const linha = rec ? linhaRec(a) : linhaDe(a);
       if (lin) sh.getRange(lin, 1, 1, linha.length).setValues([linha]);
       else sh.appendRow(linha);
       return { atend: a };
@@ -333,7 +355,7 @@ const ACOES = {
       const agora = Date.now();
       const desde = Number(q.desde) || 0;
       const itens = [];
-      [[planilha(), CAB], [abaTestes(), CAB_TESTE]].forEach(function (par) {
+      [[planilha(), CAB], [abaTestes(), CAB_TESTE], [abaRecebimentos(), CAB_REC]].forEach(function (par) {
         const sh = par[0], cab = par[1];
         if (!sh) return;
         const n = sh.getLastRow() - 1;
@@ -432,6 +454,14 @@ function linhaTeste(t) {
   ];
 }
 
+function linhaRec(r) {
+  return [
+    r.id, r.numero, r.excluido ? 'Excluído' : (r.status === 'concluido' ? 'Registrado' : 'Em aberto'), r.os || '', r.placa || '',
+    dt(r.criadoEm), dt(r.concluidoEm), (r.fotos || []).length, r.obs || '', r.pasta || '',
+    r.criadoPor || '', r.alteradoPor || '', r.excluido ? 'Sim' : '', r.servidorEm || 0, JSON.stringify(r),
+  ];
+}
+
 function acharLinha(sh, id) {
   const n = sh.getLastRow() - 1;
   if (n < 1) return 0;
@@ -452,18 +482,18 @@ function proximoNumero(sh, chave) {
   return n;
 }
 
-function pastaDo(a) {
+function pastaDo(a, raiz) {
   const p = props();
   const k = 'P_' + a.id;
   const id = p.getProperty(k);
   if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
-  const f = pastaAtendimentos().createFolder(nomePasta(a));
+  const f = (raiz || pastaAtendimentos()).createFolder(nomePasta(a));
   p.setProperty(k, f.getId());
   return f;
 }
 
 function nomePasta(a) {
-  return [a.numero ? '#' + a.numero : 'Atendimento', a.placa, a.os ? 'OS ' + a.os : '']
+  return [(a.tipo === 'recebimento' ? 'Recebimento ' : '') + (a.numero ? '#' + a.numero : (a.tipo === 'recebimento' ? '' : 'Atendimento')), a.placa, a.os ? 'OS ' + a.os : '']
     .filter(function (x) { return x; }).join(' - ');
 }
 
