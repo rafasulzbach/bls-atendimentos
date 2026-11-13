@@ -470,7 +470,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.2.0';
+const APP_VERSAO = '2.2.1';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1699,7 +1699,7 @@ async function buscarPeca() {
   catch (e) { $('#pRes').innerHTML = `<div style="color:var(--red)">${esc(e.message)}</div>`; return; }
   $('#pRes').innerHTML = manPecas.r.linhas.length ? tabelaPecas(manPecas.r) : '<div style="color:var(--muted)">Nada encontrado.</div>';
 }
-// página de um manual: baixa só a "parte" (bloco de 10 páginas) onde ela está
+// página de um manual: baixa só a "parte" (bloco de páginas) onde ela está
 const partesCache = new Map();
 async function obterParte(manualId, pagina) {
   const dados = await carregarManuais();
@@ -1760,12 +1760,25 @@ async function baixarPagina(manualId, pagina) {
 function escolherArquivo(accept) {
   return new Promise(res => { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.onchange = () => res(i.files[0] || null); i.click(); });
 }
+// executa fn em até n itens ao mesmo tempo
+async function emParalelo(itens, n, fn) {
+  const res = new Array(itens.length); let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, itens.length) }, async () => { while (i < itens.length) { const k = i++; res[k] = await fn(itens[k], k); } }));
+  return res;
+}
+async function comRetentativa(fn, vezes = 4) {
+  for (let t = 1; ; t++) {
+    try { return await fn(); }
+    catch (e) { if (t >= vezes || /administrador|login|Chave/i.test(e.message)) throw e; await new Promise(r => setTimeout(r, 2000 * t)); }
+  }
+}
 async function enviarArquivoDrive(blob, nome, destino, prog) {
-  const N = 4 * 1024 * 1024, mime = blob.type || 'application/pdf';
+  const N = 8 * 1024 * 1024, mime = blob.type || 'application/pdf';
   let off = 0, sessao = null;
   while (off < blob.size) {
     const parte = blob.slice(off, off + N);
-    const r = await Sync.api('upload', { destino, nome, mime, tamanho:blob.size, offset:off, sessao, data: await paraB64(parte) });
+    const data = await paraB64(parte), o = off, ss = sessao;
+    const r = await comRetentativa(() => Sync.api('upload', { destino, nome, mime, tamanho:blob.size, offset:o, sessao:ss, data }));
     off += parte.size; if (prog) prog(off / blob.size);
     if (r.fim) return r.driveId;
     sessao = r.sessao;
@@ -1844,19 +1857,25 @@ async function processarManual(arquivo, meta, prog) {
   const { id } = await Sync.api('manualIniciar', { titulo });
   const destino = 'manual:' + id;
   const nomeBase = titulo.replace(/[\\/:*?"<>|]/g, '-');
-  const arquivoId = await enviarArquivoDrive(new Blob([buf], { type:'application/pdf' }), nomeBase + '.pdf', destino, f => prog(`Enviando o manual: ${Math.round(f * 100)}%`));
+  // envia o PDF completo e os blocos de páginas ao mesmo tempo (4 envios em paralelo)
   const { PDFDocument } = await pdflib();
   const src = await PDFDocument.load(buf, { ignoreEncryption:true });
-  const partes = [];
-  for (let de = 1; de <= n; de += 10) {
-    const ate = Math.min(n, de + 9);
-    prog(`Separando páginas para consulta rápida: ${ate} de ${n}...`);
+  const PAGS = 20, blocos = [];
+  for (let de = 1; de <= n; de += PAGS) blocos.push({ de, ate: Math.min(n, de + PAGS - 1) });
+  let feitos = 0, pctCompleto = 0;
+  const atualizar = () => prog(`Enviando: manual ${Math.round(pctCompleto * 100)}% · páginas ${feitos} de ${blocos.length} blocos`);
+  atualizar();
+  const tarefas = [{ completo:true }, ...blocos];
+  const res = await emParalelo(tarefas, 4, async t => {
+    if (t.completo) return enviarArquivoDrive(new Blob([buf], { type:'application/pdf' }), nomeBase + '.pdf', destino, f => { pctCompleto = f; atualizar(); });
     const out = await PDFDocument.create();
-    const pgs = await out.copyPages(src, Array.from({ length: ate - de + 1 }, (_, i) => de - 1 + i));
+    const pgs = await out.copyPages(src, Array.from({ length: t.ate - t.de + 1 }, (_, i) => t.de - 1 + i));
     pgs.forEach(p => out.addPage(p));
-    const pid = await enviarArquivoDrive(new Blob([await out.save()], { type:'application/pdf' }), `parte_${String(de).padStart(4, '0')}-${String(ate).padStart(4, '0')}.pdf`, destino);
-    partes.push({ de, ate, id:pid });
-  }
+    const id = await enviarArquivoDrive(new Blob([await out.save()], { type:'application/pdf' }), `parte_${String(t.de).padStart(4, '0')}-${String(t.ate).padStart(4, '0')}.pdf`, destino);
+    feitos++; atualizar();
+    return { de:t.de, ate:t.ate, id };
+  });
+  const arquivoId = res[0], partes = res.slice(1);
   prog('Finalizando...');
   await Sync.api('manualConcluir', { id, marca:meta.marca, modelo:meta.modelo, tipo:meta.tipo, titulo, paginas:n, arquivoId, partes, indice:textos, semTexto: Math.max(0, semTexto),
     hash: meta.hash || await hashArquivo(arquivo), data: meta.data || arquivo.lastModified || Date.now(), palavras: meta.palavras || '', origem: meta.origem || 'manual' });
