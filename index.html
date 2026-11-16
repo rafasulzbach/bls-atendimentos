@@ -69,6 +69,17 @@ main{flex:1;min-width:0;display:flex;flex-direction:column}
 .btn:disabled{opacity:.5;cursor:default}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font-size:12.5px;font-weight:600;white-space:nowrap}
 .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.oscard{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:13px 16px;cursor:pointer}
+.oscard .l1{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.oscard .pl{font-weight:700;font-size:16px;letter-spacing:.3px}
+.oscard .l2{color:var(--muted);font-size:13.5px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oscard .resumo-os{font-size:13.5px;margin-top:6px;color:var(--ink,#1e293b);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.oscard .det{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:14px}
+.oscard .det h5{margin:10px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.oscard .det pre{white-space:pre-wrap;font:inherit;margin:0}
+.oscard .det ul{margin:0;padding-left:18px}
+.osfonte{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-top:8px}
+.osfonte small{display:block;color:var(--muted)}
 .s-pend{background:var(--pend-l);color:var(--pend)}
 .s-esp{background:var(--esp-l);color:var(--esp)}
 .s-env{background:var(--env-l);color:var(--env)}
@@ -414,6 +425,8 @@ textarea.inp{min-height:110px;resize:vertical}
   .atalho{padding:14px 16px}
   .nav.sete button{font-size:8.6px!important;letter-spacing:-.35px}
   .nav.sete .ico{width:20px;height:20px}
+  .nav.oito button{font-size:8.2px!important;letter-spacing:-.4px}
+  .nav.oito .ico{width:19px;height:19px}
   .hero .btn{width:100%}
   .rowc{grid-template-columns:1fr auto;gap:6px 10px}
   .rowc .hide-m{display:none}
@@ -437,6 +450,7 @@ textarea.inp{min-height:110px;resize:vertical}
       <button data-nav="recebimento"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 5.5h12v10h-12z"/><path d="M13.5 9h4l3 3.5v3h-7z"/><circle cx="5.5" cy="17.5" r="2"/><circle cx="17" cy="17.5" r="2"/></svg></span><span>Recebimento</span><span class="badge" id="bRec">0</span></button>
       <button data-nav="teste"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17"/><path d="m9 3.5 3 2 3-2M9 20.5l3-2 3 2M4.2 10.6l3.4-.6-1.1-3.3M19.8 13.4l-3.4.6 1.1 3.3M19.8 10.6l-3.4-.6 1.1-3.3M4.2 13.4l3.4.6-1.1 3.3"/></svg></span><span>Teste de Frio</span></button>
       <button data-nav="manuais"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6.5A2.5 2.5 0 0 0 4 20.5 2.5 2.5 0 0 0 6.5 23H19v-5"/><path d="M8 7h7M8 11h5"/></svg></span><span>Manuais</span></button>
+      <button data-nav="os"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg></span><span>OS</span></button>
       <button data-nav="config"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><span id="lblCfg">Ajustes</span><span class="badge hidden" id="bCfg">0</span></button>
     </nav>
     <div class="side-foot">Versão <span id="versao"></span></div>
@@ -470,7 +484,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.2.1';
+const APP_VERSAO = '2.3.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -801,7 +815,7 @@ async function render() {
   $('#bRec').textContent = nRec; $('#bRec').classList.toggle('hidden', !nRec); $('#bRec').title = 'Em aberto';
   const navAtivo = { form:'atendimentos', detalhe:'atendimentos', testeForm:'teste', testeDet:'teste', recForm:'recebimento', recDet:'recebimento' }[atual.view] || atual.view;
   document.querySelectorAll('#nav [data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === navAtivo));
-  const fn = { inicio:vInicio, atendimentos:vAtendimentos, cobranca:vCobranca, teste:vTeste, testeForm:vTesteForm, testeDet:vTesteDet, manuais:vManuais, recebimento:vRecebimento, recForm:vRecForm, recDet:vRecDet, config:() => Sessao.admin() ? vConfig() : vPerfil(), form:vForm, detalhe:vDetalhe }[atual.view];
+  const fn = { inicio:vInicio, atendimentos:vAtendimentos, cobranca:vCobranca, teste:vTeste, testeForm:vTesteForm, testeDet:vTesteDet, manuais:vManuais, os:vOS, recebimento:vRecebimento, recForm:vRecForm, recDet:vRecDet, config:() => Sessao.admin() ? vConfig() : vPerfil(), form:vForm, detalhe:vDetalhe }[atual.view];
   await fn(lista, testes, recs);
   carregarPendentes();
 }
@@ -1576,6 +1590,81 @@ async function excluirObs(oid) {
 /* ---------- Manuais (biblioteca + IA) ---------- */
 const PDFJS_V = '6.2.108';
 const normTxt = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+/* ---------- OS do M8 (enviadas pela extensão Painel BLS; sem valores) ---------- */
+const OSM8 = {
+  lista: null, em: 0, verificadoEm: 0, carregando: null,
+  idb() { return new Promise((res, rej) => { const r = indexedDB.open('bls-os-m8', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); },
+  async lerLocal() { try { const db = await this.idb(); return await new Promise(res => { const q = db.transaction('kv').objectStore('kv').get('os'); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch (e) { return null; } },
+  async gravarLocal(v) { try { const db = await this.idb(); await new Promise(res => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, 'os'); t.oncomplete = res; t.onerror = res; }); } catch (e) {} },
+  async carregar(forcar) {
+    if (this.carregando) return this.carregando;
+    this.carregando = (async () => {
+      if (!this.lista) { const l = await this.lerLocal(); if (l) { this.lista = l.lista; this.em = l.em; } }
+      if (!forcar && this.lista && Date.now() - this.verificadoEm < 5 * 60e3) return;
+      try {
+        const r = await Sync.api('osLista', { desde: this.lista ? this.em : 0 });
+        this.verificadoEm = Date.now();
+        if (r.gz) {
+          const bin = Uint8Array.from(atob(r.gz), c => c.charCodeAt(0));
+          const txt = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+          this.lista = JSON.parse(txt); this.em = r.em;
+          await this.gravarLocal({ lista: this.lista, em: this.em });
+        } else if (r.vazio) { this.lista = this.lista || []; }
+      } catch (e) {
+        if (!this.lista) throw new Error(/desconhecida/i.test(e.message) ? 'O servidor do app ainda não foi atualizado para as OS.' : e.message);
+      }
+    })().finally(() => { this.carregando = null; });
+    return this.carregando;
+  },
+};
+const filtrosOS = { busca:'', status:'todas', aberta:null, limite:50 };
+const placaNorm = t => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function dataBr(iso) { return iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '—'; }
+function cardOS(o) {
+  const aberta = filtrosOS.aberta === o.os;
+  const resumo = String(o.obs_interna || o.obs || '').split(/\n+/).filter(Boolean).slice(0, 2).join(' · ');
+  return `<div class="oscard" data-oscard="${o.os}">
+    <div class="l1"><span class="pl">${esc(o.placa || 'Sem placa')}</span><span class="pill ${o.status === 'Faturada' ? 's-ok' : 's-pend'}">${esc(o.status)}</span></div>
+    <div class="l2">OS ${o.os} · ${dataBr(o.aberta)} · ${esc(o.cliente || '')}</div>
+    ${resumo && !aberta ? `<div class="resumo-os">${esc(resumo)}</div>` : ''}
+    ${aberta ? `<div class="det">
+      <div>Aberta em <b>${dataBr(o.aberta)}</b>${o.faturada ? ` · faturada em <b>${dataBr(o.faturada)}</b>` : ''}${o.etapa ? ` · ${esc(o.etapa)}` : ''}</div>
+      ${o.equipamento ? `<div>Equipamento: <b>${esc(o.equipamento)}</b></div>` : ''}
+      ${o.notas ? `<div>Notas: ${esc(o.notas)}</div>` : ''}
+      ${o.obs_interna ? `<h5>Serviços (observações internas)</h5><pre>${esc(o.obs_interna)}</pre>` : ''}
+      ${o.obs ? `<h5>Observações</h5><pre>${esc(o.obs)}</pre>` : ''}
+      ${o.itens && o.itens.length ? `<h5>Itens lançados</h5><ul>${o.itens.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : (o.status === 'Pendente' ? '<h5>Itens lançados</h5><div style="color:var(--muted)">Ainda sem itens lançados (ou não carregados).</div>' : '')}
+    </div>` : ''}
+  </div>`;
+}
+async function vOS() {
+  cab('Ordens de serviço', 'Do M8 · sem valores');
+  $('#view').innerHTML = `<div class="toolbar">
+      <div class="chips">${[['todas', 'Todas'], ['Pendente', 'Pendentes'], ['Faturada', 'Faturadas']].map(([v, n]) => `<button class="chip ${filtrosOS.status === v ? 'on' : ''}" data-osf="${v}">${n}</button>`).join('')}</div>
+      <input class="search" id="osBusca" type="search" placeholder="Placa, cliente, nº da OS ou serviço..." value="${esc(filtrosOS.busca)}">
+    </div><div id="osLista"><div class="empty">Carregando as OS...</div></div>`;
+  const inp = $('#osBusca');
+  inp.oninput = () => { filtrosOS.busca = inp.value; filtrosOS.limite = 50; clearTimeout(inp._t); inp._t = setTimeout(listarOS, 200); };
+  try { await OSM8.carregar(); } catch (e) { if ($('#osLista')) $('#osLista').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (atual.view === 'os') listarOS();
+  // confere novidades em segundo plano
+  OSM8.carregar(true).then(() => { if (atual.view === 'os') listarOS(); }).catch(() => {});
+}
+function listarOS() {
+  const el = $('#osLista'); if (!el) return;
+  const lista = OSM8.lista || [];
+  if (!lista.length) { el.innerHTML = '<div class="empty">Nenhuma OS recebida ainda. Elas chegam quando o Painel BLS do computador principal atualizar o M8.</div>'; return; }
+  const q = normTxt(filtrosOS.busca).trim(), qp = placaNorm(filtrosOS.busca);
+  let vis = lista.filter(o => filtrosOS.status === 'todas' || o.status === filtrosOS.status);
+  if (q) vis = vis.filter(o => String(o.os) === q || (qp.length >= 3 && placaNorm(o.placa).includes(qp)) || normTxt([o.cliente, o.equipamento, o.obs, o.obs_interna, o.notas, (o.itens || []).join(' ')].join(' ')).includes(q));
+  vis.sort((a, b) => String(b.aberta).localeCompare(String(a.aberta)) || b.os - a.os);
+  const quando = OSM8.em ? new Date(OSM8.em).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+  el.innerHTML = `<div style="color:var(--muted);font-size:13px;margin:0 2px 10px">${vis.length} OS${quando ? ' · M8 lido em ' + quando : ''}</div>` +
+    (vis.length ? `<div class="rows">${vis.slice(0, filtrosOS.limite).map(cardOS).join('')}</div>` +
+      (vis.length > filtrosOS.limite ? `<div class="btnrow" style="margin-top:12px"><button class="btn sec" data-osmais="1" style="width:100%">Mostrar mais (${vis.length - filtrosOS.limite})</button></div>` : '')
+    : '<div class="empty">Nenhuma OS encontrada.</div>');
+}
+
 let _pdfjs = null, manCache = null, manTab = 'ia', manResp = null, manPecas = null;
 const TIPOS_MANUAL = ['Manual de serviço', 'Manual de operação', 'Catálogo de peças', 'Diagrama elétrico', 'Boletim técnico', 'Outro'];
 function carregarJS(src, glob) {
@@ -1616,7 +1705,7 @@ function tabelaPecas(p) {
   return `<div class="ptab"><table><tr>${idx.map(i => `<th>${esc(p.cabecalho[i])}</th>`).join('')}</tr>${p.linhas.map(l => `<tr>${idx.map(i => `<td${p.cabecalho[i] === 'Código' ? ' style="font-weight:700;white-space:nowrap"' : ''}>${esc(l[i] ?? '')}</td>`).join('')}</tr>`).join('')}</table></div>`;
 }
 async function vManuais() {
-  cab('Manuais', 'Consulta com IA nos manuais e peças');
+  cab('Manuais', 'Consulta com IA nos manuais, peças e OS');
   const adm = Sessao.admin();
   $('#view').innerHTML = `
     <div class="chips mtabs">
@@ -1632,9 +1721,9 @@ async function vManuais() {
   const b = $('#manBody');
   if (manTab === 'ia') {
     b.innerHTML = `<div class="card">
-        <h3 style="margin:0 0 6px">Pergunte aos manuais</h3>
-        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">A IA procura nos ${dados.manuais.filter(m => m.tipo !== 'Mensagens do grupo').length} manual(is)${dados.manuais.some(m => m.tipo === 'Mensagens do grupo') ? ', nas mensagens do grupo' : ''}${dados.pecas ? ' e na tabela de peças' : ''} e mostra de onde tirou a resposta.</p>
-        <textarea class="inp" id="mPerg" style="min-height:84px" placeholder="Ex.: O que significa o alarme 34 no Supra 850?">${esc(manResp ? manResp.pergunta : '')}</textarea>
+        <h3 style="margin:0 0 6px">Pergunte aos manuais e às OS</h3>
+        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">A IA procura nos ${dados.manuais.filter(m => m.tipo !== 'Mensagens do grupo').length} manual(is)${dados.manuais.some(m => m.tipo === 'Mensagens do grupo') ? ', nas mensagens do grupo' : ''}${dados.pecas ? ', na tabela de peças' : ''} e nas ordens de serviço do M8 (pergunte pela placa ou nº da OS), e mostra de onde tirou a resposta.</p>
+        <textarea class="inp" id="mPerg" style="min-height:84px" placeholder="Ex.: O que significa o alarme 34 no Supra 850? · O que foi feito na placa ABC1D23?">${esc(manResp ? manResp.pergunta : '')}</textarea>
         <div class="mq">${marcas.length > 1 ? `<select class="catsel" id="mMarca"><option value="">Todas as marcas</option>${marcas.map(m => `<option>${esc(m)}</option>`).join('')}</select>` : ''}
           <button class="btn" data-man="perguntar" style="flex:1">✨ Perguntar</button></div>
       </div>
@@ -1668,7 +1757,7 @@ async function vManuais() {
   }
 }
 function respostaHtml(r) {
-  if (r.carregando) return `<div class="card mresp"><div class="mload">✨ Procurando nos manuais...</div></div>`;
+  if (r.carregando) return `<div class="card mresp"><div class="mload">✨ Procurando nos manuais e nas OS...</div></div>`;
   return `<div class="card mresp">
     <div class="mtxt">${mdSimples(r.resposta || '')}</div>
     ${r.fontes && r.fontes.length ? `<h4>Fontes</h4>${r.fontes.map(f => f.tipo === 'msg' ? `<div class="fonte msgf">
@@ -1678,9 +1767,10 @@ function respostaHtml(r) {
         <div class="fbtn"><button class="btn sec" data-pag="${f.manualId}|${f.pagina}">👁 Ver página</button>
           <button class="btn sec" data-pagdl="${f.manualId}|${f.pagina}">⬇ Página (PDF)</button>
           <a class="btn ghost" href="${esc(f.link)}" target="_blank" rel="noopener">📘 Manual completo</a></div></div>`).join('')}` : ''}
+    ${r.ordens && r.ordens.length ? `<h4>Ordens de serviço</h4>${r.ordens.map(o => `<div class="osfonte"><div><b>OS ${o.os} · ${esc(o.placa || 'sem placa')}</b><small>${dataBr(o.aberta)} · ${esc(o.cliente || '')} · ${esc(o.status || '')}</small></div><button class="btn sec" data-osver="${o.os}">Ver OS</button></div>`).join('')}` : ''}
     ${r.pecas && r.pecas.linhas && r.pecas.linhas.length ? `<h4>Tabela de peças</h4>${tabelaPecas(r.pecas)}` : ''}
     ${r.sugestoes && r.sugestoes.linhas && r.sugestoes.linhas.length ? `<h4>Peças possivelmente relacionadas (confira)</h4>${tabelaPecas(r.sugestoes)}` : ''}
-    <p class="aviso-ia">Resposta gerada por IA a partir dos manuais. Confira na página indicada antes de executar o serviço.</p>
+    <p class="aviso-ia">Resposta gerada por IA a partir dos manuais${r.ordens && r.ordens.length ? ' e das ordens de serviço' : ''}. Confira na fonte indicada antes de executar o serviço.</p>
   </div>`;
 }
 async function perguntarIA() {
@@ -2344,12 +2434,34 @@ async function vConfig() {
       <div class="btnrow"><button class="btn" data-ia="salvar">Salvar</button><button class="btn sec" data-ia="testar">Testar a IA</button></div>
       <div id="iaStatus" style="margin-top:10px;font-size:14px;color:var(--muted)">Carregando...</div></div>
     <div class="card cfg" style="max-width:660px;margin-top:14px">
+      <h3 style="margin-top:0">Ordens de serviço do M8</h3>
+      <p style="color:var(--muted);margin-top:0">A extensão Painel BLS do computador principal envia as OS (sem valores) a cada atualização do M8. Todos os usuários veem na aba <b>OS</b>, e a IA dos manuais também procura nelas. Copie o código abaixo e cole na extensão: Configurações → <b>OS para o app de atendimentos</b>.</p>
+      <div id="osCfgInfo" style="font-size:14px;color:var(--muted)">Carregando...</div>
+      <div class="btnrow"><button class="btn" data-osc="copiar">📋 Copiar código para a extensão</button><button class="btn ghost" data-osc="nova">Gerar código novo</button></div></div>
+    <div class="card cfg" style="max-width:660px;margin-top:14px">
       <h3 style="margin-top:0">Abas de cada categoria</h3>
       <p style="color:var(--muted);margin-top:0">Marque o que cada categoria pode ver. <b>Início</b> e <b>Perfil</b> aparecem para todos. Usuário novo entra como <b>Técnico</b>.</p>
       <div id="permBox"><span style="color:var(--muted)">Carregando...</span></div></div>` : ''}
     <div class="card" style="max-width:660px;margin-top:14px;color:var(--muted);font-size:14px">Versão do app: <b>${APP_VERSAO}</b> · Versão do servidor: <b id="verSrv">...</b></div>`;
   Sync.api('ping').then(r => { const e = $('#verSrv'); if (e) e.textContent = r.versao || '?'; }).catch(() => { const e = $('#verSrv'); if (e) e.textContent = 'sem conexão'; });
-  if (Sync.cfg()) { carregarUsuarios(); iaAcao('status'); }
+  if (Sync.cfg()) { carregarUsuarios(); iaAcao('status'); osCfgAcao('status'); }
+}
+async function osCfgAcao(a) {
+  const st = t => { const el = $('#osCfgInfo'); if (el) el.innerHTML = t; };
+  try {
+    if (a === 'nova') {
+      const ok = await modal({ titulo:'Gerar código novo?', corpo:'O código antigo para de funcionar: será preciso colar o novo na extensão do computador principal.', botoes:[{ label:'Cancelar', cls:'ghost', valor:false }, { label:'Gerar', cls:'', valor:true }] });
+      if (!ok) return;
+    }
+    const r = await Sync.api('osConfig', { nova: a === 'nova' });
+    st(r.em ? `Último envio da extensão: <b>${fmtCurto(r.em)}</b> · ${r.total} OS` : 'A extensão ainda não enviou nenhuma OS.');
+    if (a === 'copiar' || a === 'nova') {
+      const c = Sync.cfg();
+      const cod = 'blsos1:' + btoa(unescape(encodeURIComponent(JSON.stringify({ u:c.url, k:c.chave, s:r.chaveOS })))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      try { await navigator.clipboard.writeText(cod); toast('Código copiado ✓ Cole na extensão Painel BLS.', 4000); }
+      catch (e) { await modal({ titulo:'Código para a extensão', corpo:`<textarea class="inp" readonly style="min-height:90px;font-family:monospace;font-size:12px">${esc(cod)}</textarea>`, botoes:[{ label:'Fechar', cls:'', valor:true }] }); }
+    }
+  } catch (e) { st(`<span style="color:var(--red)">${esc(/desconhecida/i.test(e.message) ? 'O servidor ainda não foi atualizado (precisa da versão 2.4).' : e.message)}</span>`); }
 }
 async function carregarUsuarios() {
   const el = $('#usuList'); if (!el) return;
@@ -2708,7 +2820,7 @@ function aplicarPerfil() {
   $('#lblCfg').textContent = s && s.admin ? 'Ajustes' : 'Perfil';
   ['atendimentos', 'recebimento', 'cobranca', 'teste', 'manuais'].forEach(a => document.querySelector(`[data-nav="${a}"]`).classList.toggle('hidden', !!s && !podeVer(a)));
   const nVis = document.querySelectorAll('#nav [data-nav]:not(.hidden)').length;
-  $('#nav').classList.toggle('seis', nVis > 5); $('#nav').classList.toggle('sete', nVis > 6);
+  $('#nav').classList.toggle('seis', nVis > 5); $('#nav').classList.toggle('sete', nVis > 6); $('#nav').classList.toggle('oito', nVis > 7);
   const ub = $('#userBtn');
   ub.classList.toggle('hidden', !s);
   if (s) { ub.textContent = s.nome.split(/\s+/).slice(0, 2).map(x => x[0] || '').join('').toUpperCase(); ub.title = s.nome; }
@@ -2741,6 +2853,11 @@ $('#view').addEventListener('click', async e => {
   if ((el = t.closest('[data-pagdl]'))) { const [m, p] = el.dataset.pagdl.split('|'); return baixarPagina(m, +p); }
   if ((el = t.closest('[data-mdel]'))) { return excluirManual(el.dataset.mdel); }
   if ((el = t.closest('[data-ia]'))) { return iaAcao(el.dataset.ia); }
+  if ((el = t.closest('[data-osc]'))) { return osCfgAcao(el.dataset.osc); }
+  if ((el = t.closest('[data-osf]'))) { filtrosOS.status = el.dataset.osf; filtrosOS.limite = 50; document.querySelectorAll('[data-osf]').forEach(b => b.classList.toggle('on', b === el)); return listarOS(); }
+  if ((el = t.closest('[data-osmais]'))) { filtrosOS.limite += 50; return listarOS(); }
+  if ((el = t.closest('[data-osver]'))) { filtrosOS.busca = el.dataset.osver; filtrosOS.status = 'todas'; filtrosOS.aberta = +el.dataset.osver; return go('os'); }
+  if ((el = t.closest('[data-oscard]'))) { if (t.closest('a,button,pre,li')) return; const n = +el.dataset.oscard; filtrosOS.aberta = filtrosOS.aberta === n ? null : n; return listarOS(); }
   if ((el = t.closest('[data-perfil]'))) { return perfilAcao(el.dataset.perfil); }
   if ((el = t.closest('[data-perm]'))) { return salvarPermissoes(); }
   if ((el = t.closest('[data-cfg]'))) { return cfgAcao(el.dataset.cfg); }

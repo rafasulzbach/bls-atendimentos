@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.3';
+const VERSAO_API = '2.4';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -152,8 +152,8 @@ function doGet() {
   return ContentService.createTextOutput('BLS Atendimentos API ' + VERSAO_API + ' — funcionando.');
 }
 
-const PUBLICAS = { ping: 1, loginGoogle: 1 };
-const SO_ADMIN = { usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, manualExcluirOrigem: 1, pecasImportar: 1 };
+const PUBLICAS = { ping: 1, loginGoogle: 1, osPublicar: 1 };   // osPublicar confere a chave própria das OS
+const SO_ADMIN = { osConfig: 1, usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, manualExcluirOrigem: 1, pecasImportar: 1 };
 
 function doPost(e) {
   let r;
@@ -507,13 +507,14 @@ const MODELO_PADRAO = 'gemini-flash-latest';
 const STOP = { de:1, da:1, do:1, das:1, dos:1, em:1, no:1, na:1, nos:1, nas:1, um:1, uma:1, o:1, a:1, os:1, as:1, e:1, ou:1, que:1, qual:1, quais:1, como:1, para:1, por:1, com:1, sem:1, se:1, ao:1, aos:1, eh:1, sao:1, ser:1, esta:1, isso:1, este:1, essa:1, esse:1, onde:1, quando:1, mais:1, menos:1, muito:1, tem:1, ter:1, fazer:1, faz:1, pelo:1, pela:1, meu:1, minha:1, seu:1, sua:1, the:1, of:1, and:1, to:1, in:1, is:1, for:1, on:1, what:1, how:1 };
 const SISTEMA_IA = 'Você é o assistente técnico da Refrigeração BLS (autorizada Carrier Transicold). ' +
   'Responda em português do Brasil, de forma direta e prática para um técnico de campo. ' +
-  'Use SOMENTE as informações dos TRECHOS fornecidos (páginas de manuais e linhas da tabela de peças). ' +
+  'Use SOMENTE as informações dos TRECHOS fornecidos (páginas de manuais, linhas da tabela de peças e ordens de serviço da oficina). ' +
   'Os trechos podem estar em inglês: traduza a resposta para o português, mas mantenha códigos, valores e nomes de peças exatamente como estão. ' +
   'Nunca invente valores, códigos, torques, pressões ou procedimentos. Se os trechos não trouxerem a resposta, diga claramente que não encontrou essa informação nos manuais cadastrados. ' +
   'Cada trecho traz a data do documento ou da mensagem. Quando houver informações diferentes sobre o mesmo assunto, use a MAIS RECENTE e avise que existe uma informação mais antiga diferente. ' +
   'Trechos marcados como MENSAGENS DO GRUPO são relatos de técnicos num grupo de Telegram, não documentação oficial: deixe isso claro quando a resposta vier deles (ex.: "segundo técnicos no grupo, em 03/2024..."). ' +
   'Na TABELA DE PEÇAS, procure pelo nome da peça em português ou inglês e por sinônimos (ex.: motor de partida = motor de arranque = starter motor). Se encontrar a peça, informe o código exatamente como está na tabela. ' +
-  'Responda em JSON no formato {"resposta": "texto (pode usar **negrito** e listas com - )", "fontes": [números n dos trechos [n] usados], "pecas": [números das linhas P usadas]}.';
+  'Trechos [OSn] são ORDENS DE SERVIÇO da própria oficina (histórico do sistema M8): use-os para perguntas sobre placas, clientes, equipamentos e serviços já feitos ou em andamento. Cite sempre o número da OS e a data. As "observações internas" descrevem o serviço pedido/feito e os "itens lançados" são peças e mão de obra. Não existem valores em R$ nesses dados: se perguntarem preço ou valor, diga que o app não mostra valores. ' +
+  'Responda em JSON no formato {"resposta": "texto (pode usar **negrito** e listas com - )", "fontes": [números n dos trechos [n] usados], "pecas": [números das linhas P usadas], "os": [números n das ordens [OSn] usadas]}.';
 
 function abaManuais() {
   const s = ss();
@@ -714,7 +715,10 @@ const ACOES_MANUAIS = {
     const pergunta = String(q.pergunta || '').trim();
     if (pergunta.length < 3) throw new Error('Escreva a pergunta.');
     const termos = termosDe(pergunta);
-    if (!termos.length) throw new Error('Escreva a pergunta com mais detalhes (modelo, código, sintoma).');
+    const temRefOS = placasDe(pergunta).length || /\b(os|ordem|ordens|placa|servi[cç]o)\b/i.test(pergunta);
+    if (!termos.length && !temRefOS) throw new Error('Escreva a pergunta com mais detalhes (modelo, código, sintoma).');
+    // pergunta sobre placa/OS: quase sempre é sobre o histórico da oficina, não sobre os manuais
+    const ordens = buscarOS(pergunta, termos, placasDe(pergunta).length ? 10 : (temRefOS ? 8 : 4));
     let mans = listaManuais();
     if (q.marca) mans = mans.filter(function (m) { return m.marca === q.marca; });
     const cands = [];
@@ -733,15 +737,16 @@ const ACOES_MANUAIS = {
       });
     });
     cands.sort(function (a, b) { return b.sc - a.sc; });
-    const top = cands.slice(0, 6);
-    const pecas = buscarPecas(termos, 25);
-    if (!top.length && !pecas.linhas.length) {
+    const top = cands.slice(0, placasDe(pergunta).length ? 3 : 6);
+    const pecas = placasDe(pergunta).length ? { cabecalho: [], linhas: [] } : buscarPecas(termos, 25);
+    if (!top.length && !pecas.linhas.length && !ordens.length) {
       return { resposta: 'Não encontrei nada sobre isso nos manuais e na tabela de peças cadastrados. Tente usar outras palavras, o código do alarme ou o modelo do equipamento.', fontes: [], pecas: { cabecalho: [], linhas: [] } };
     }
     let ctx = '';
     top.forEach(function (c, i) {
       ctx += '\n[' + (i + 1) + '] ' + (c.msg ? 'MENSAGENS DO GRUPO (' + c.data + ')' : c.m.titulo + ' — página ' + c.p + (c.data ? ' — documento de ' + c.data : '')) + '\n' + String(c.txt).slice(0, 4500) + '\n';
     });
+    ordens.forEach(function (o, i) { ctx += '\n[OS' + (i + 1) + '] ORDEM DE SERVIÇO DA OFICINA\n' + textoOS(o) + '\n'; });
     if (pecas.linhas.length) ctx += '\n[TABELA DE PEÇAS] colunas: ' + pecas.cabecalho.join(' | ') + '\n' + pecas.linhas.map(function (l, i) { return 'P' + (i + 1) + ': ' + l.join(' | '); }).join('\n') + '\n';
     const r = gemini([{ text: 'PERGUNTA DO TÉCNICO: ' + pergunta + '\n\nTRECHOS:' + ctx }], SISTEMA_IA);
     const vistos = {};
@@ -754,7 +759,10 @@ const ACOES_MANUAIS = {
       });
     const pu = (r.pecas || []).map(function (n) { return parseInt(String(n).replace(/\D/g, ''), 10); })
       .filter(function (n) { return n >= 1 && n <= pecas.linhas.length; });
-    return { resposta: String(r.resposta || ''), fontes: fontes, pecas: { cabecalho: pecas.cabecalho, linhas: pu.map(function (n) { return pecas.linhas[n - 1]; }) },
+    const osUsadas = (r.os || []).map(function (n) { return parseInt(String(n).replace(/\D/g, ''), 10); })
+      .filter(function (n) { return n >= 1 && n <= ordens.length; })
+      .map(function (n) { const o = ordens[n - 1]; return { os: o.os, placa: o.placa || '', cliente: o.cliente || '', aberta: o.aberta, status: o.status }; });
+    return { resposta: String(r.resposta || ''), fontes: fontes, ordens: osUsadas, pecas: { cabecalho: pecas.cabecalho, linhas: pu.map(function (n) { return pecas.linhas[n - 1]; }) },
              sugestoes: pu.length ? null : { cabecalho: pecas.cabecalho, linhas: pecas.linhas.slice(0, 8) } };
   },
 
@@ -839,3 +847,100 @@ const ACOES_MANUAIS = {
   },
 };
 Object.keys(ACOES_MANUAIS).forEach(function (k) { ACOES[k] = ACOES_MANUAIS[k]; });
+
+/* ---------- Ordens de serviço do M8 (enviadas pela extensão Painel BLS, sem valores) ---------- */
+function pastaOS() {
+  const p = props();
+  const id = p.getProperty('PASTA_OS');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  const f = DriveApp.getFolderById(PASTA_ID).createFolder('Ordens de serviço (M8)');
+  p.setProperty('PASTA_OS', f.getId());
+  return f;
+}
+function chaveOS(nova) {
+  const p = props();
+  let k = p.getProperty('CHAVE_OS');
+  if (!k || nova) { k = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8); p.setProperty('CHAVE_OS', k); }
+  return k;
+}
+let OS_MEMO = null;
+function lerOS() {
+  if (OS_MEMO) return OS_MEMO;
+  const id = props().getProperty('OS_ARQUIVO');
+  if (!id) return (OS_MEMO = []);
+  try { OS_MEMO = JSON.parse(Utilities.ungzip(DriveApp.getFileById(id).getBlob().setContentType('application/x-gzip')).getDataAsString()); }
+  catch (e) { OS_MEMO = []; }
+  return OS_MEMO;
+}
+function infoOS() {
+  const p = props();
+  return { em: Number(p.getProperty('OS_EM') || 0), total: Number(p.getProperty('OS_TOTAL') || 0) };
+}
+const ACOES_OS = {
+  // A extensão do computador principal envia todas as OS (12 meses) já compactadas
+  osPublicar(q) {
+    const k = props().getProperty('CHAVE_OS');
+    if (!k || q.chaveOS !== k) throw new Error('Código de envio das OS inválido. Gere um novo no app (Ajustes) e cole na extensão.');
+    const bytes = Utilities.base64Decode(String(q.gz || ''));
+    const lista = JSON.parse(Utilities.ungzip(Utilities.newBlob(bytes, 'application/x-gzip')).getDataAsString());
+    if (!Array.isArray(lista)) throw new Error('Dados das OS inválidos');
+    const blob = Utilities.newBlob(bytes, 'application/x-gzip', 'ordens-servico.json.gz');
+    const p = props();
+    const antigo = p.getProperty('OS_ARQUIVO');
+    const f = pastaOS().createFile(blob);
+    p.setProperty('OS_ARQUIVO', f.getId());
+    p.setProperty('OS_EM', String(Date.now()));
+    p.setProperty('OS_TOTAL', String(lista.length));
+    if (antigo) { try { DriveApp.getFileById(antigo).setTrashed(true); } catch (e) {} }
+    return { total: lista.length };
+  },
+  // App: baixa as OS (só se mudaram desde a última vez)
+  osLista(q) {
+    const i = infoOS();
+    if (!i.em) return { em: 0, total: 0, vazio: true };
+    if (q.desde && Number(q.desde) >= i.em) return { em: i.em, total: i.total, semMudanca: true };
+    const id = props().getProperty('OS_ARQUIVO');
+    return { em: i.em, total: i.total, gz: Utilities.base64Encode(DriveApp.getFileById(id).getBlob().getBytes()) };
+  },
+  // Administrador: código para colar na extensão
+  osConfig(q) {
+    const i = infoOS();
+    return { chaveOS: chaveOS(!!q.nova), em: i.em, total: i.total };
+  },
+};
+Object.keys(ACOES_OS).forEach(function (k) { ACOES[k] = ACOES_OS[k]; });
+
+// Busca nas OS para a IA: placa, nº da OS, cliente, equipamento, observações e itens
+function placasDe(texto) {
+  const r = [], re = /\b([a-z]{3})[\s-]?(\d[a-z0-9]\d{2})\b/gi; let m;
+  while ((m = re.exec(String(texto)))) r.push((m[1] + m[2]).toUpperCase());
+  return r;
+}
+function buscarOS(pergunta, termos, max) {
+  const lista = lerOS(); if (!lista.length) return [];
+  const placas = placasDe(pergunta);
+  const nums = (String(pergunta).match(/\b\d{4,6}\b/g) || []).map(Number);
+  const cands = [];
+  lista.forEach(function (o) {
+    const placa = String(o.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    let sc = 0;
+    if (placa && placas.indexOf(placa) >= 0) sc += 100;
+    if (nums.indexOf(Number(o.os)) >= 0) sc += 100;
+    if (!sc && termos.length) {
+      const txt = norm([o.cliente, o.equipamento, o.obs, o.obs_interna, (o.itens || []).join(' '), o.notas].join(' '));
+      sc = pontuar(txt, termos);
+    }
+    if (sc > 0) cands.push({ o: o, sc: sc });
+  });
+  // mais relevantes primeiro; empate: a mais recente
+  cands.sort(function (a, b) { return (b.sc - a.sc) || String(b.o.aberta).localeCompare(String(a.o.aberta)); });
+  return cands.slice(0, max).map(function (c) { return c.o; });
+}
+function textoOS(o) {
+  return 'OS ' + o.os + ' · ' + o.status + (o.etapa ? ' (' + o.etapa + ')' : '') + ' · aberta em ' + o.aberta + (o.faturada ? ' · faturada em ' + o.faturada : '') +
+    '\nCliente: ' + (o.cliente || '—') + ' · Placa: ' + (o.placa || '—') + (o.equipamento ? ' · Equipamento: ' + o.equipamento : '') +
+    (o.notas ? '\nNotas: ' + o.notas : '') +
+    (o.obs ? '\nObservações: ' + String(o.obs).slice(0, 1500) : '') +
+    (o.obs_interna ? '\nObservações internas (serviços pedidos/feitos): ' + String(o.obs_interna).slice(0, 2500) : '') +
+    (o.itens && o.itens.length ? '\nItens lançados (peças e serviços): ' + o.itens.slice(0, 60).join('; ') : '');
+}
