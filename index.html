@@ -484,7 +484,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.3.1';
+const APP_VERSAO = '2.3.2';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1607,7 +1607,7 @@ const OSM8 = {
         if (r.gz) {
           const bin = Uint8Array.from(atob(r.gz), c => c.charCodeAt(0));
           const txt = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
-          this.lista = JSON.parse(txt); this.em = r.em;
+          this.lista = JSON.parse(txt); this.em = r.em; this.indice = null;
           await this.gravarLocal({ lista: this.lista, em: this.em });
         } else if (r.vazio) { this.lista = this.lista || []; }
       } catch (e) {
@@ -1656,7 +1656,10 @@ function listarOS() {
   if (!lista.length) { el.innerHTML = '<div class="empty">Nenhuma OS recebida ainda. Elas chegam quando o Painel BLS do computador principal atualizar o M8.</div>'; return; }
   const q = normTxt(filtrosOS.busca).trim(), qp = placaNorm(filtrosOS.busca);
   let vis = lista.filter(o => filtrosOS.status === 'todas' || o.status === filtrosOS.status);
-  if (q) vis = vis.filter(o => String(o.os) === q || (qp.length >= 3 && placaNorm(o.placa).includes(qp)) || normTxt([o.cliente, o.equipamento, o.obs, o.obs_interna, o.notas, (o.itens || []).join(' ')].join(' ')).includes(q));
+  // texto de busca de cada OS calculado uma vez só (deixa a pesquisa instantânea)
+  if (!OSM8.indice || OSM8.indice.lista !== lista) OSM8.indice = { lista, txt: new Map(lista.map(o => [o, normTxt([o.cliente, o.equipamento, o.obs, o.obs_interna, o.notas, (o.itens || []).join(' ')].join(' '))])), placa: new Map(lista.map(o => [o, placaNorm(o.placa)])) };
+  const ix = OSM8.indice;
+  if (q) vis = vis.filter(o => String(o.os) === q || (qp.length >= 3 && ix.placa.get(o).includes(qp)) || ix.txt.get(o).includes(q));
   vis.sort((a, b) => String(b.aberta).localeCompare(String(a.aberta)) || b.os - a.os);
   const quando = OSM8.em ? new Date(OSM8.em).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
   el.innerHTML = `<div style="color:var(--muted);font-size:13px;margin:0 2px 10px">${vis.length} OS${quando ? ' · M8 lido em ' + quando : ''}</div>` +
@@ -1665,7 +1668,7 @@ function listarOS() {
     : '<div class="empty">Nenhuma OS encontrada.</div>');
 }
 
-let _pdfjs = null, manCache = null, manTab = 'ia', manResp = null, manPecas = null;
+let _pdfjs = null, manCache = null, manTab = 'ia', manResp = null, manPecas = null, manFonte = lsGet('fonteIA') === 'os' ? 'os' : 'manuais';
 const TIPOS_MANUAL = ['Manual de serviço', 'Manual de operação', 'Catálogo de peças', 'Diagrama elétrico', 'Boletim técnico', 'Outro'];
 function carregarJS(src, glob) {
   return new Promise((res, rej) => {
@@ -1721,10 +1724,16 @@ async function vManuais() {
   const b = $('#manBody');
   if (manTab === 'ia') {
     b.innerHTML = `<div class="card">
-        <h3 style="margin:0 0 6px">Pergunte aos manuais e às OS</h3>
-        <p style="color:var(--muted);margin:0 0 12px;font-size:14px">A IA procura nos ${dados.manuais.filter(m => m.tipo !== 'Mensagens do grupo').length} manual(is)${dados.manuais.some(m => m.tipo === 'Mensagens do grupo') ? ', nas mensagens do grupo' : ''}${dados.pecas ? ', na tabela de peças' : ''} e nas ordens de serviço do M8 (pergunte pela placa ou nº da OS), e mostra de onde tirou a resposta.</p>
-        <textarea class="inp" id="mPerg" style="min-height:84px" placeholder="Ex.: O que significa o alarme 34 no Supra 850? · O que foi feito na placa ABC1D23?">${esc(manResp ? manResp.pergunta : '')}</textarea>
-        <div class="mq">${marcas.length > 1 ? `<select class="catsel" id="mMarca"><option value="">Todas as marcas</option>${marcas.map(m => `<option>${esc(m)}</option>`).join('')}</select>` : ''}
+        <div class="lbl" style="font-size:13px;font-weight:600;margin-bottom:6px">Procurar em</div>
+        <div class="chips" style="margin-bottom:10px">
+          <button class="chip ${manFonte === 'manuais' ? 'on' : ''}" data-mfonte="manuais">📘 Manuais e grupo</button>
+          <button class="chip ${manFonte === 'os' ? 'on' : ''}" data-mfonte="os">🔧 OS e peças</button>
+        </div>
+        <p id="mFonteTxt" style="color:var(--muted);margin:0 0 10px;font-size:14px">${manFonte === 'os'
+          ? 'Procura nas ordens de serviço do M8 e na tabela de peças. Pergunte pela placa, nº da OS, cliente ou peça.'
+          : `Procura nos ${dados.manuais.filter(m => m.tipo !== 'Mensagens do grupo').length} manual(is)${dados.manuais.some(m => m.tipo === 'Mensagens do grupo') ? ' e nas mensagens do grupo do Telegram' : ''} e mostra de onde tirou a resposta.`}</p>
+        <textarea class="inp" id="mPerg" style="min-height:84px" placeholder="${manFonte === 'os' ? 'Ex.: O que foi feito na placa ABC1D23? · Qual o código da correia do Supra 850?' : 'Ex.: O que significa o alarme 34 no Supra 850?'}">${esc(manResp ? manResp.pergunta : '')}</textarea>
+        <div class="mq">${marcas.length > 1 && manFonte !== 'os' ? `<select class="catsel" id="mMarca"><option value="">Todas as marcas</option>${marcas.map(m => `<option>${esc(m)}</option>`).join('')}</select>` : ''}
           <button class="btn" data-man="perguntar" style="flex:1">✨ Perguntar</button></div>
       </div>
       <div id="mResp">${manResp ? respostaHtml(manResp) : ''}</div>`;
@@ -1757,7 +1766,7 @@ async function vManuais() {
   }
 }
 function respostaHtml(r) {
-  if (r.carregando) return `<div class="card mresp"><div class="mload">✨ Procurando nos manuais e nas OS...</div></div>`;
+  if (r.carregando) return `<div class="card mresp"><div class="mload">✨ ${manFonte === 'os' ? 'Procurando nas OS e na tabela de peças...' : 'Procurando nos manuais...'}</div></div>`;
   return `<div class="card mresp">
     <div class="mtxt">${mdSimples(r.resposta || '')}</div>
     ${r.fontes && r.fontes.length ? `<h4>Fontes</h4>${r.fontes.map(f => f.tipo === 'msg' ? `<div class="fonte msgf">
@@ -1770,7 +1779,7 @@ function respostaHtml(r) {
     ${r.ordens && r.ordens.length ? `<h4>Ordens de serviço</h4>${r.ordens.map(o => `<div class="osfonte"><div><b>OS ${o.os} · ${esc(o.placa || 'sem placa')}</b><small>${dataBr(o.aberta)} · ${esc(o.cliente || '')} · ${esc(o.status || '')}</small></div><button class="btn sec" data-osver="${o.os}">Ver OS</button></div>`).join('')}` : ''}
     ${r.pecas && r.pecas.linhas && r.pecas.linhas.length ? `<h4>Tabela de peças</h4>${tabelaPecas(r.pecas)}` : ''}
     ${r.sugestoes && r.sugestoes.linhas && r.sugestoes.linhas.length ? `<h4>Peças possivelmente relacionadas (confira)</h4>${tabelaPecas(r.sugestoes)}` : ''}
-    <p class="aviso-ia">Resposta gerada por IA a partir dos manuais${r.ordens && r.ordens.length ? ' e das ordens de serviço' : ''}. Confira na fonte indicada antes de executar o serviço.</p>
+    <p class="aviso-ia">Resposta gerada por IA a partir ${r.ordens && r.ordens.length ? 'das ordens de serviço' : 'dos manuais'}. Confira na fonte indicada antes de executar o serviço.</p>
   </div>`;
 }
 async function perguntarIA() {
@@ -1778,7 +1787,7 @@ async function perguntarIA() {
   if (pergunta.length < 3) { toast('Escreva a pergunta.'); return; }
   const marca = $('#mMarca') ? $('#mMarca').value : '';
   manResp = { pergunta, carregando:true }; $('#mResp').innerHTML = respostaHtml(manResp);
-  try { const r = await Sync.api('perguntar', { pergunta, marca }); manResp = { ...r, pergunta }; }
+  try { const r = await Sync.api('perguntar', { pergunta, marca: manFonte === 'os' ? '' : marca, fonte: manFonte }); manResp = { ...r, pergunta }; }
   catch (e) { manResp = { pergunta, resposta:'⚠️ ' + e.message, fontes:[] }; }
   if ($('#mResp')) $('#mResp').innerHTML = respostaHtml(manResp);
 }
@@ -2853,6 +2862,7 @@ $('#view').addEventListener('click', async e => {
   if ((el = t.closest('[data-pagdl]'))) { const [m, p] = el.dataset.pagdl.split('|'); return baixarPagina(m, +p); }
   if ((el = t.closest('[data-mdel]'))) { return excluirManual(el.dataset.mdel); }
   if ((el = t.closest('[data-ia]'))) { return iaAcao(el.dataset.ia); }
+  if ((el = t.closest('[data-mfonte]'))) { const txt = $('#mPerg') ? $('#mPerg').value : ''; manFonte = el.dataset.mfonte; lsSet('fonteIA', manFonte); if (manResp) manResp = null; await vManuais(); if ($('#mPerg')) $('#mPerg').value = txt; return; }
   if ((el = t.closest('[data-osc]'))) { return osCfgAcao(el.dataset.osc); }
   if ((el = t.closest('[data-osf]'))) { filtrosOS.status = el.dataset.osf; filtrosOS.limite = 50; document.querySelectorAll('[data-osf]').forEach(b => b.classList.toggle('on', b === el)); return listarOS(); }
   if ((el = t.closest('[data-osmais]'))) { filtrosOS.limite += 50; return listarOS(); }

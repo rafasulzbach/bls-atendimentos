@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.4';
+const VERSAO_API = '2.5';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -717,9 +717,11 @@ const ACOES_MANUAIS = {
     const termos = termosDe(pergunta);
     const temRefOS = placasDe(pergunta).length || /\b(os|ordem|ordens|placa|servi[cç]o)\b/i.test(pergunta);
     if (!termos.length && !temRefOS) throw new Error('Escreva a pergunta com mais detalhes (modelo, código, sintoma).');
-    // pergunta sobre placa/OS: quase sempre é sobre o histórico da oficina, não sobre os manuais
-    const ordens = buscarOS(pergunta, termos, placasDe(pergunta).length ? 10 : (temRefOS ? 8 : 4));
-    let mans = listaManuais();
+    // fonte escolhida no app: "manuais" (manuais + mensagens do grupo) ou "os" (ordens de serviço + tabela de peças).
+    // Buscar só onde foi pedido deixa a resposta bem mais rápida (os manuais são o que mais demora).
+    const fonte = q.fonte === 'os' || q.fonte === 'manuais' ? q.fonte : 'tudo';
+    const ordens = fonte === 'manuais' ? [] : buscarOS(pergunta, termos, placasDe(pergunta).length ? 10 : (fonte === 'os' ? 10 : (temRefOS ? 8 : 4)));
+    let mans = fonte === 'os' ? [] : listaManuais();
     if (q.marca) mans = mans.filter(function (m) { return m.marca === q.marca; });
     const cands = [];
     mans.forEach(function (m) {
@@ -738,9 +740,11 @@ const ACOES_MANUAIS = {
     });
     cands.sort(function (a, b) { return b.sc - a.sc; });
     const top = cands.slice(0, placasDe(pergunta).length ? 3 : 6);
-    const pecas = placasDe(pergunta).length ? { cabecalho: [], linhas: [] } : buscarPecas(termos, 25);
+    const pecas = (fonte === 'manuais' || placasDe(pergunta).length) ? { cabecalho: [], linhas: [] } : buscarPecas(termos, 25);
     if (!top.length && !pecas.linhas.length && !ordens.length) {
-      return { resposta: 'Não encontrei nada sobre isso nos manuais e na tabela de peças cadastrados. Tente usar outras palavras, o código do alarme ou o modelo do equipamento.', fontes: [], pecas: { cabecalho: [], linhas: [] } };
+      const nada = fonte === 'os' ? 'Não encontrei nenhuma OS nem peça sobre isso. Tente pela placa (ex.: ABC1D23), pelo nº da OS ou pelo nome do cliente.'
+        : 'Não encontrei nada sobre isso nos manuais cadastrados. Tente usar outras palavras, o código do alarme ou o modelo do equipamento.';
+      return { resposta: nada, fontes: [], ordens: [], pecas: { cabecalho: [], linhas: [] } };
     }
     let ctx = '';
     top.forEach(function (c, i) {
