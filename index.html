@@ -484,7 +484,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.3.3';
+const APP_VERSAO = '2.4.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -509,6 +509,8 @@ const Sessao = {
   admin() { const x = this.get(); return !!(x && x.admin); },
 };
 const quem = () => (Sessao.get() || {}).nome || '';
+// celular da empresa (entra por link, sem Google): o nome de quem está usando é digitado em cada registro
+const ehAparelho = () => { const s = Sessao.get() || {}; return !!(s.aparelho || String(s.usuario || '').indexOf('aparelho:') === 0); };
 async function gravar(a) { a.atualizadoEm = Date.now(); a.sujo = true; await DB.put('atend', a); if (window.Sync) Sync.agendar(); }
 const osTag = a => a.os ? `<span class="os-tag">OS ${esc(a.os)}</span>` : '';
 
@@ -529,14 +531,18 @@ function toast(msg, ms = 2600) {
   const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t); setTimeout(() => t.remove(), ms);
 }
-function modal({ titulo, corpo, botoes }) {
+function modal({ titulo, corpo, botoes, antes }) {
   return new Promise(res => {
     const bg = document.createElement('div'); bg.className = 'modal-bg';
     bg.innerHTML = `<div class="modal"><h3>${titulo}</h3><div class="mb">${corpo}</div><div class="mf">${
       botoes.map((b, i) => `<button class="btn ${b.cls || ''}" data-i="${i}">${b.label}</button>`).join('')}</div></div>`;
     bg.addEventListener('click', e => {
       const b = e.target.closest('[data-i]');
-      if (b) { bg.remove(); res(botoes[+b.dataset.i].valor); }
+      if (b) {
+        let v = botoes[+b.dataset.i].valor;
+        if (v && antes) { v = antes(); if (v === false) return; }   // antes(): valida e devolve os dados do formulário
+        bg.remove(); res(v);
+      }
       else if (e.target === bg) { bg.remove(); res(undefined); }
     });
     document.body.appendChild(bg);
@@ -774,7 +780,7 @@ async function novoAtendimento() {
   const agora = Date.now();
   const a = {
     id: uid(), numero, criadoEm: agora, atualizadoEm: agora,
-    os: '', tecnico: Sessao.admin() ? (lsGet('ultimoTecnico') || '') : quem(), placa: '', criadoPor: quem(),
+    os: '', tecnico: ehAparelho() ? '' : Sessao.admin() ? (lsGet('ultimoTecnico') || '') : quem(), placa: '', criadoPor: quem(),
     etiqueta: [], horimetros: [], descricao: '', audios: [], midias: [],
     status: 'pendente', finalizadoEm: null,
     cobranca: { em_espera:null, enviado:null, concluido:null },
@@ -1202,7 +1208,7 @@ async function imprimirTeste() {
 
 /* ---------- Recebimento de veículos ---------- */
 const filtrosR = { busca:'' };
-function normRec(r) { r.fotos = r.fotos || []; r.obs = r.obs || ''; r.os = r.os || ''; r.placa = r.placa || ''; r.historico = r.historico || []; return r; }
+function normRec(r) { if (r.recebidoPor === undefined) r.recebidoPor = r.criadoPor || ''; r.fotos = r.fotos || []; r.obs = r.obs || ''; r.os = r.os || ''; r.placa = r.placa || ''; r.historico = r.historico || []; return r; }
 const pillRec = r => r.status === 'concluido' ? '<span class="pill s-ok">Registrado</span>' : '<span class="pill s-pend">Em aberto</span>';
 function linhaRec(r) {
   normRec(r);
@@ -1210,7 +1216,7 @@ function linhaRec(r) {
     <div class="n">${numTxt(r)}</div>
     <div><span class="p">${esc(r.placa) || '—'}</span><div class="t">${r.os ? 'OS ' + esc(r.os) + ' · ' : ''}${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}</div></div>
     <div class="hide-m"><span class="lbl">Recebido em</span>${fmtCurto(r.criadoEm)}</div>
-    <div class="hide-m"><span class="lbl">Por</span>${esc(r.criadoPor || '—')}</div>
+    <div class="hide-m"><span class="lbl">Por</span>${esc(r.recebidoPor || r.criadoPor || '—')}</div>
     <div>${pillRec(r)}</div>
   </div>`;
 }
@@ -1229,7 +1235,7 @@ async function vRecebimento(lista, testes, recs) {
 async function novoRecebimento() {
   const agora = Date.now();
   const r = { id:uid(), tipo:'recebimento', numero:null, criadoEm:agora, atualizadoEm:agora, status:'pendente',
-    placa:'', os:'', fotos:[], obs:'', criadoPor:quem(), historico:[{ status:'pendente', em:agora, por:quem() }] };
+    placa:'', os:'', fotos:[], obs:'', recebidoPor: ehAparelho() ? '' : quem(), criadoPor:quem(), historico:[{ status:'pendente', em:agora, por:quem() }] };
   await gravar(r);
   go('recForm', r.id);
 }
@@ -1246,6 +1252,8 @@ async function vRecForm() {
     <div class="fields">
       <div class="field${r.placa.trim() ? ' okf' : ''}" data-f="placa"><div class="flabel">Placa <span class="req">*</span></div>
         <input class="inp placa-inp" id="rPlaca" autocomplete="off" placeholder="ABC1D23" maxlength="10" value="${esc(r.placa)}"></div>
+      <div class="field${r.recebidoPor.trim() ? ' okf' : ''}" data-f="recebidoPor"><div class="flabel">Recebido por <span class="req">*</span></div>
+        <input class="inp" id="rPor" autocomplete="off" placeholder="Seu nome" value="${esc(r.recebidoPor)}"></div>
       <div class="field" data-f="os"><div class="flabel">Ordem de serviço <small>Opcional — pode ser preenchida depois</small></div>
         <input class="inp" id="rOS" inputmode="numeric" autocomplete="off" placeholder="Nº da OS" value="${esc(r.os)}"></div>
       <div class="field${r.fotos.length ? ' okf' : ''}" data-f="fotos"><div class="flabel">Fotos do veículo <span class="req">*</span> <small>sem limite</small></div>
@@ -1258,14 +1266,15 @@ async function vRecForm() {
       <button class="btn danger" data-act="excluirRec" title="Excluir recebimento">🗑</button>
       <button class="btn fin" data-act="concluirRec">✓ Concluir recebimento</button>
     </div>`;
-  const pl = $('#rPlaca'), os = $('#rOS'), ob = $('#rObs');
+  const pl = $('#rPlaca'), os = $('#rOS'), ob = $('#rObs'), rp = $('#rPor');
+  rp.oninput = () => { cur.recebidoPor = rp.value; rp.closest('.field').classList.toggle('okf', !!rp.value.trim()); agendarSalvar(); };
   pl.oninput = () => { const p = pl.selectionStart; pl.value = pl.value.toUpperCase().replace(/\s/g, ''); pl.setSelectionRange(p, p); cur.placa = pl.value; pl.closest('.field').classList.toggle('okf', !!pl.value); agendarSalvar(); };
   os.oninput = () => { cur.os = os.value.trim(); agendarSalvar(); };
   ob.oninput = () => { cur.obs = ob.value; agendarSalvar(); };
 }
 async function concluirRec() {
   await flush();
-  const falta = [!cur.placa.trim() && { k:'placa', label:'Placa' }, !cur.fotos.length && { k:'fotos', label:'Pelo menos uma foto do veículo' }].filter(Boolean);
+  const falta = [!cur.placa.trim() && { k:'placa', label:'Placa' }, !String(cur.recebidoPor || '').trim() && { k:'recebidoPor', label:'Recebido por (nome)' }, !cur.fotos.length && { k:'fotos', label:'Pelo menos uma foto do veículo' }].filter(Boolean);
   document.querySelectorAll('.field').forEach(f => f.classList.toggle('erro', falta.some(c => c.k === f.dataset.f)));
   if (falta.length) {
     await modal({ titulo:'Faltam itens obrigatórios', corpo:`Preencha para concluir:<ul>${falta.map(f => `<li>${f.label}</li>`).join('')}</ul>`, botoes:[{ label:'Entendi', valor:true }] });
@@ -1301,7 +1310,7 @@ async function vRecDet() {
       <div class="kv">
         <div><span class="lbl">Ordem de serviço</span><div class="os-det"><input class="inp" id="detOS" inputmode="numeric" autocomplete="off" placeholder="Informar nº da OS" value="${esc(r.os)}" style="padding:8px 12px;font-size:15px;font-weight:600"></div><small id="osInfo" style="color:var(--ok);font-size:12px"></small></div>
         <div><span class="lbl">Recebido em</span><b>${fmtCurto(r.criadoEm)}</b></div>
-        <div><span class="lbl">Registrado por</span><b>${esc(r.criadoPor || '—')}</b></div>
+        <div><span class="lbl">Recebido por</span><b>${esc(r.recebidoPor || r.criadoPor || '—')}</b></div>
         <div><span class="lbl">Concluído em</span><b>${fmtCurto(r.concluidoEm)}</b></div>
         <div><span class="lbl">Arquivos</span><b>${r.pasta ? `<a href="${esc(r.pasta)}" target="_blank" rel="noopener" style="color:var(--pri)">📁 Abrir pasta no Drive</a>` : '—'}</b></div>
       </div>
@@ -2435,7 +2444,10 @@ async function vConfig() {
     ${Sync.cfg() ? `<div class="card cfg" style="max-width:660px;margin-top:14px">
       <h3 style="margin-top:0">Usuários</h3>
       <p style="color:var(--muted);margin-top:0">Quando um técnico entra pela primeira vez com a conta Google, ele aparece aqui como <b>Pendente</b>. Libere só quem for da equipe.</p>
-      <div class="ulist" id="usuList"><span style="color:var(--muted)">Carregando...</span></div></div>
+      <div class="ulist" id="usuList"><span style="color:var(--muted)">Carregando...</span></div>
+      <h3 style="margin:22px 0 4px">📱 Celulares da empresa</h3>
+      <p style="color:var(--muted);margin-top:0">Para os aparelhos fixos (almoxarifado, plantão...). Entram por um link próprio, sem conta Google, e o nome de quem usa é preenchido em cada registro.</p>
+      <div class="btnrow"><button class="btn sec" data-act="novoAparelho">＋ Novo celular da empresa</button></div></div>
     <div class="card cfg" style="max-width:660px;margin-top:14px">
       <h3 style="margin-top:0">IA dos manuais (Gemini)</h3>
       <p style="color:var(--muted);margin-top:0">Chave gratuita criada no Google AI Studio. Ela fica guardada só no seu servidor do Google. O modelo é escolhido automaticamente: o mais novo e econômico disponível, trocando sozinho se algum estiver sobrecarregado.</p>
@@ -2485,9 +2497,10 @@ async function carregarUsuarios() {
     usuarios.sort((a, b) => (ordem[a.situacao] ?? 3) - (ordem[b.situacao] ?? 3));
     const cor = { Pendente:'var(--pend)', Liberado:'var(--ok)', Bloqueado:'var(--red)' };
     el.innerHTML = usuarios.length ? usuarios.map(u => `<div class="urow">
-      <div class="un"><b>${esc(u.nome)}</b> <span style="color:${cor[u.situacao] || 'var(--muted)'};font-size:12.5px;font-weight:600">● ${esc(u.situacao)}</span>
-        <small>${esc(u.email)}${u.nomeGoogle && u.nomeGoogle !== u.nome ? ' · Google: ' + esc(u.nomeGoogle) : ''}<br>Último acesso: ${u.ultimoAcesso ? fmtCurto(u.ultimoAcesso) : '—'}</small></div>
+      <div class="un"><b>${u.aparelho ? '📱 ' : ''}${esc(u.nome)}</b> <span style="color:${cor[u.situacao] || 'var(--muted)'};font-size:12.5px;font-weight:600">● ${esc(u.situacao)}</span>
+        <small>${u.aparelho ? 'Celular da empresa' : esc(u.email)}${!u.aparelho && u.nomeGoogle && u.nomeGoogle !== u.nome ? ' · Google: ' + esc(u.nomeGoogle) : ''}<br>Último acesso: ${u.ultimoAcesso ? fmtCurto(u.ultimoAcesso) : '—'}</small></div>
       <select class="catsel" data-catu="${esc(u.email)}"><option${u.categoria !== 'Geral' ? ' selected' : ''}>Técnico</option><option${u.categoria === 'Geral' ? ' selected' : ''}>Geral</option></select>
+      ${u.aparelho ? `<button class="btn sec" data-aplink="${esc(u.email.slice(9))}" data-apnome="${esc(u.nome)}">🔗 Link</button>` : ''}
       ${u.situacao !== 'Liberado' ? `<button class="btn" data-usu="${esc(u.email)}" data-op="liberar">Liberar</button>` : ''}
       ${u.situacao === 'Liberado' ? `<button class="btn danger" data-usu="${esc(u.email)}" data-op="bloquear">Bloquear</button>` : ''}
       ${u.situacao !== 'Liberado' ? `<button class="btn ghost" data-usu="${esc(u.email)}" data-op="excluir">Remover</button>` : ''}
@@ -2525,6 +2538,27 @@ $('#view').addEventListener('change', async e => {
   try { await Sync.api('usuarioAcao', { email:sel.dataset.catu, op:'categoria', valor:sel.value }); toast('Categoria alterada para ' + sel.value + ' ✓'); }
   catch (err) { toast(err.message); }
 });
+const linkAparelho = cod => location.origin + location.pathname + '?aparelho=' + cod;
+async function mostrarLinkAparelho(nome, cod) {
+  const link = linkAparelho(cod);
+  const r = await modal({ titulo:'📱 ' + esc(nome), corpo:`Abra este link <b>no celular da empresa</b> (Chrome no Android, Safari no iPhone) e depois instale o app. Ele entra direto, sem conta Google.
+    <input class="inp" readonly value="${esc(link)}" style="margin:12px 0 6px;font-size:13px" onclick="this.select()">
+    <small style="color:var(--muted)">Se pedir um código, use: <b style="user-select:all">${esc(cod)}</b><br>Quem tiver esse link entra no app como este aparelho: envie só para o próprio celular. Para cancelar, use <b>Bloquear</b>.</small>`,
+    botoes:[{ label:'Fechar', cls:'ghost', valor:false }, { label:'📋 Copiar link', valor:true }] });
+  if (r) { try { await navigator.clipboard.writeText(link); toast('Link copiado ✓'); } catch (e) { toast('Não foi possível copiar: selecione o link e copie.'); } }
+}
+async function novoAparelho() {
+  const r = await modal({ titulo:'Novo celular da empresa', corpo:`<div class="cfg"><label>Nome do aparelho</label><input class="inp" id="apNome" placeholder="Ex.: BLS Almox" autocomplete="off">
+    <label>Categoria</label><select class="inp" id="apCat"><option>Técnico</option><option>Geral</option></select></div>`,
+    botoes:[{ label:'Cancelar', cls:'ghost', valor:false }, { label:'Criar', valor:true }],
+    antes: () => { const n = $('#apNome').value.trim(); if (n.length < 2) { toast('Informe o nome do aparelho.'); return false; } return { nome:n, categoria:$('#apCat').value }; } });
+  if (!r) return;
+  try {
+    const x = await Sync.api('aparelhoCriar', r);
+    carregarUsuarios();
+    mostrarLinkAparelho(r.nome, x.codigo);
+  } catch (e) { toast(e.message); }
+}
 async function usuarioAcao(usuario, op) {
   const txt = { liberar:['Liberar acesso?', `<b>${esc(usuario)}</b> poderá entrar no app e registrar atendimentos.`, 'Liberar'],
                 bloquear:['Bloquear usuário?', `<b>${esc(usuario)}</b> não conseguirá mais entrar nem enviar atendimentos.`, 'Bloquear'],
@@ -2674,8 +2708,24 @@ function mostrarGate(modo, aviso = '') {
     b.innerHTML = `<h2>Entrar</h2>
       <p>Entre com a sua conta Google. No primeiro acesso, o administrador precisa liberar a sua entrada.</p>
       <div class="gate-msg" id="gMsg">${esc(aviso)}</div>
-      <div id="gGoogle"><small style="color:var(--muted)">Carregando...</small></div>`;
+      <div id="gGoogle"><small style="color:var(--muted)">Carregando...</small></div>
+      <button class="btn ghost" id="gAparelho" style="margin-top:18px;width:100%">📱 Celular da empresa? Entrar com código</button>`;
     prepararGoogle();
+    $('#gAparelho').onclick = () => mostrarGate('aparelho');
+  } else if (modo === 'aparelho') {
+    b.innerHTML = `<h2>Celular da empresa</h2>
+      <p>Cole o link ou o código que o administrador enviou para este aparelho.</p>
+      <label>Link ou código</label><input class="inp" id="gCod" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ex.: 3f9a1c...">
+      <div class="gate-msg" id="gMsg">${esc(aviso)}</div>
+      <button class="btn" id="gEntrarAp">Entrar</button>
+      <button class="btn ghost" id="gVoltar" style="margin-top:10px;width:100%">← Entrar com Google</button>`;
+    $('#gVoltar').onclick = () => mostrarGate('login');
+    $('#gEntrarAp').onclick = async e => {
+      const v = $('#gCod').value.trim(), m = v.match(/[?&]aparelho=([A-Za-z0-9]+)/), cod = m ? m[1] : v.replace(/[^A-Za-z0-9]/g, '');
+      if (cod.length < 8) { gateMsg('Informe o link ou o código.'); return; }
+      gateCarregando(e.target, true);
+      try { await entrarAparelho(cod); } catch (err) { gateMsg(err.message); gateCarregando(e.target, false); }
+    };
   } else if (modo === 'conectando') {
     b.innerHTML = `<h2>Conectando...</h2><p>Ligando este aparelho à nuvem da BLS Refrigeração. Aguarde alguns segundos.</p>`;
   } else if (modo === 'pendente') {
@@ -2712,6 +2762,20 @@ async function prepararGoogle() {
     el.innerHTML = '';
     google.accounts.id.renderButton(el, { theme:'filled_blue', size:'large', text:'signin_with', locale:'pt-BR', shape:'pill', width:300 });
   } catch (e) { el.innerHTML = '<small style="color:var(--muted)">Sem conexão com o Google.</small>'; }
+}
+async function entrarAparelho(cod) {
+  const x = await Sync.api('loginAparelho', { codigo:cod });
+  await entrouCom({ ...x.sessao, aparelho:true });
+}
+async function aparelhoPorLink() {
+  const cod = new URLSearchParams(location.search).get('aparelho');
+  if (!cod) return;
+  history.replaceState(null, '', location.pathname);
+  const s = Sessao.get();
+  if (s && s.usuario === 'aparelho:' + cod) return;               // já entrou com este link
+  mostrarGate('conectando');
+  try { await entrarAparelho(cod); }
+  catch (e) { mostrarGate('aparelho', e.message); }
 }
 async function entrouCom(sessao) {
   Sessao.set(sessao);
@@ -2795,8 +2859,18 @@ async function conferirNome() {
 }
 async function vPerfil() {
   cab('Perfil', 'Seus dados no app');
-  const s = Sessao.get() || {}, p = Perfil.get() || {};
-  $('#view').innerHTML = `
+  const s = Sessao.get() || {}, p = Perfil.get() || {}, ap = ehAparelho();
+  $('#view').innerHTML = ap ? `
+    <div class="card" style="max-width:660px">
+      <h3 style="margin-top:0">📱 ${esc(s.nome || '')}</h3>
+      <p style="color:var(--muted);margin:0 0 14px">Celular da empresa. Em cada atendimento, recebimento ou teste, preencha o nome de quem está fazendo.</p>
+      <div class="kv" style="margin-top:0">
+        <div><span class="lbl">Categoria</span><b>${esc(p.categoria || 'Técnico')}</b></div>
+        <div><span class="lbl">Abas liberadas</span><b>${['Início', ...abasLiberadas().map(a => NOMES_ABAS[a])].join(', ')}</b></div>
+        <div><span class="lbl">Versão do app</span><b>${APP_VERSAO}</b></div>
+      </div>
+      <div class="btnrow" style="margin-top:16px"><button class="btn ghost" data-perfil="sair">Sair deste aparelho</button></div>
+    </div>` : `
     <div class="card cfg" style="max-width:660px">
       <h3 style="margin-top:0">Meu nome no app</h3>
       <p style="color:var(--muted);margin-top:0">É o nome que aparece nos atendimentos e testes que você registra.</p>
@@ -2819,7 +2893,7 @@ async function perfilAcao(acao) {
     if (nome.length < 2) { toast('Informe o seu nome.'); return; }
     try { await salvarNome(nome); toast('Nome salvo ✓'); } catch (e) { toast(e.message); }
   } else if (acao === 'sair') {
-    if (!await confirmar('Sair da conta?', 'Para entrar de novo, use o botão do Google.', 'Sair', 'danger')) return;
+    if (!await confirmar('Sair da conta?', ehAparelho() ? 'Para entrar de novo, será preciso o link ou o código do aparelho.' : 'Para entrar de novo, use o botão do Google.', 'Sair', 'danger')) return;
     await flush(); Sessao.sair(); aplicarPerfil(); mostrarGate('login');
   }
 }
@@ -2836,7 +2910,7 @@ function aplicarPerfil() {
 }
 $('#userBtn').onclick = async () => {
   const s = Sessao.get(); if (!s) return;
-  const r = await modal({ titulo: esc(s.nome), corpo: `${s.admin ? 'Administrador · ' : ''}${esc(s.usuario)}`,
+  const r = await modal({ titulo: esc(s.nome), corpo: ehAparelho() ? '📱 Celular da empresa' : `${s.admin ? 'Administrador · ' : ''}${esc(s.usuario)}`,
     botoes: [{ label:'Fechar', cls:'ghost', valor:false }, { label:'Sair', cls:'danger', valor:true }] });
   if (!r) return;
   await flush(); Sessao.sair(); aplicarPerfil(); mostrarGate('login');
@@ -2872,6 +2946,7 @@ $('#view').addEventListener('click', async e => {
   if ((el = t.closest('[data-perm]'))) { return salvarPermissoes(); }
   if ((el = t.closest('[data-cfg]'))) { return cfgAcao(el.dataset.cfg); }
   if ((el = t.closest('[data-usu]'))) { return usuarioAcao(el.dataset.usu, el.dataset.op); }
+  if ((el = t.closest('[data-aplink]'))) { return mostrarLinkAparelho(el.dataset.apnome, el.dataset.aplink); }
   if ((el = t.closest('[data-set]'))) { return marcarBR(el); }
   if ((el = t.closest('[data-pm]'))) { return trocarSinal(el.dataset.pm); }
   if ((el = t.closest('[data-cob]')))  { return mudarCobranca(el.closest('[data-id]').dataset.id, el.dataset.cob); }
@@ -2886,6 +2961,7 @@ $('#view').addEventListener('click', async e => {
     if (act === 'excluir') return excluir();
     if (act === 'novoTeste') return novoTeste();
     if (act === 'novoRec') return novoRecebimento();
+    if (act === 'novoAparelho') return novoAparelho();
     if (act === 'concluirRec') return concluirRec();
     if (act === 'excluirRec') return excluirRec();
     if (act === 'concluirTeste') return concluirTeste();
@@ -2929,6 +3005,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sav
     aplicarPerfil();
     if (!Sync.cfg() || !Sessao.get()) mostrarGate();
     await configPorLink();
+    await aparelhoPorLink();
     prepararAtalhoIOS();
     await render();
     Sync.rodar();

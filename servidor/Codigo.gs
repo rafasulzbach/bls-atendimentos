@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.5';
+const VERSAO_API = '2.6';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -152,8 +152,8 @@ function doGet() {
   return ContentService.createTextOutput('BLS Atendimentos API ' + VERSAO_API + ' — funcionando.');
 }
 
-const PUBLICAS = { ping: 1, loginGoogle: 1, osPublicar: 1 };   // osPublicar confere a chave própria das OS
-const SO_ADMIN = { osConfig: 1, usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, manualExcluirOrigem: 1, pecasImportar: 1 };
+const PUBLICAS = { ping: 1, loginGoogle: 1, loginAparelho: 1, osPublicar: 1 };   // osPublicar confere a chave própria das OS
+const SO_ADMIN = { osConfig: 1, aparelhoCriar: 1, usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, manualExcluirOrigem: 1, pecasImportar: 1 };
 
 function doPost(e) {
   let r;
@@ -258,6 +258,27 @@ const ACOES = {
     } finally { lock.releaseLock(); }
   },
 
+  // Celular da empresa: entra pelo código do link (sem Google). Cancela-se bloqueando o aparelho em Usuários.
+  loginAparelho(q) {
+    const cod = String(q.codigo || '').replace(/[^A-Za-z0-9]/g, '');
+    if (cod.length < 16) throw new Error('Código inválido');
+    const u = acharUsuario('aparelho:' + cod);
+    if (!u) throw new Error('Código não encontrado. Peça um novo link ao administrador.');
+    if (u.situacao !== 'Liberado') throw new Error('Este aparelho está bloqueado. Fale com o administrador.');
+    abaUsuarios().getRange(u.linha, 5).setValue(new Date());
+    const s = sessaoDe(u.email, u.nomeApp || u.nome, false);
+    s.aparelho = true;
+    return { sessao: s };
+  },
+
+  aparelhoCriar(q) {
+    const nome = String(q.nome || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (nome.length < 2) throw new Error('Informe o nome do aparelho');
+    const cod = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
+    abaUsuarios().appendRow(['aparelho:' + cod, nome, 'Liberado', new Date(), '', q.categoria === 'Geral' ? 'Geral' : 'Técnico', nome]);
+    return { codigo: cod };
+  },
+
   // Perfil de quem está logado: nome no app, categoria e abas liberadas
   perfil(q, sess) {
     const perm = permissoes();
@@ -265,7 +286,7 @@ const ACOES = {
       return { admin: true, email: sess.u, nomeApp: props().getProperty('ADMIN_NOME') || '', nomeGoogle: sess.n, categoria: 'Administrador', abas: ABAS.concat(['config']), permissoes: perm };
     }
     const u = sess.reg;
-    return { admin: false, email: u.email, nomeApp: u.nomeApp, nomeGoogle: u.nome, categoria: u.categoria, abas: perm[sess.cat] || [] };
+    return { admin: false, aparelho: u.email.indexOf('aparelho:') === 0, email: u.email, nomeApp: u.nomeApp, nomeGoogle: u.nome, categoria: u.categoria, abas: perm[sess.cat] || [] };
   },
 
   salvarPerfil(q, sess) {
@@ -287,7 +308,7 @@ const ACOES = {
     const su = abaUsuarios(), n = su.getLastRow() - 1;
     if (n < 1) return { usuarios: [] };
     return { usuarios: su.getRange(2, 1, n, CAB_USU.length).getValues().map(function (v) {
-      return { email: v[0], nome: v[6] || v[1], nomeGoogle: v[1], situacao: v[2], categoria: v[5] || 'Técnico',
+      return { email: v[0], aparelho: String(v[0]).indexOf('aparelho:') === 0, nome: v[6] || v[1], nomeGoogle: v[1], situacao: v[2], categoria: v[5] || 'Técnico',
                criadoEm: v[3] ? new Date(v[3]).getTime() : null, ultimoAcesso: v[4] ? new Date(v[4]).getTime() : null };
     }), permissoes: permissoes() };
   },
@@ -458,7 +479,7 @@ function linhaRec(r) {
   return [
     r.id, r.numero, r.excluido ? 'Excluído' : (r.status === 'concluido' ? 'Registrado' : 'Em aberto'), r.os || '', r.placa || '',
     dt(r.criadoEm), dt(r.concluidoEm), (r.fotos || []).length, r.obs || '', r.pasta || '',
-    r.criadoPor || '', r.alteradoPor || '', r.excluido ? 'Sim' : '', r.servidorEm || 0, JSON.stringify(r),
+    r.recebidoPor || r.criadoPor || '', r.alteradoPor || '', r.excluido ? 'Sim' : '', r.servidorEm || 0, JSON.stringify(r),
   ];
 }
 
