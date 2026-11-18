@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.6';
+const VERSAO_API = '2.7';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -432,6 +432,33 @@ const ACOES = {
     if (code === 308) return { fim: false, sessao: sessao };
     if (code === 200 || code === 201) return { fim: true, driveId: JSON.parse(r.getContentText()).id };
     throw new Error('Falha no envio (' + code + '): ' + r.getContentText().slice(0, 200));
+  },
+
+  // Envio direto do navegador para o Drive (mais rápido): o servidor só abre a sessão de envio
+  // daquele arquivo, já autorizada, e o aparelho manda os bytes direto ao Google.
+  uploadSessao(q, sess) {
+    let pasta;
+    if (q.destino && String(q.destino).indexOf('manual:') === 0) {
+      if (!sess.adm) throw new Error('Apenas o administrador pode enviar manuais');
+      pasta = pastaManual(String(q.destino).slice(7));
+    } else pasta = pastaDo({ id: q.atendId });
+    const origem = String(q.origem || '');
+    if (!/^https:\/\/[a-z0-9.-]+\.github\.io$|^http:\/\/localhost(:\d+)?$/.test(origem)) throw new Error('Origem não permitida');
+    const r0 = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id', {
+      method: 'post',
+      contentType: 'application/json; charset=UTF-8',
+      headers: {
+        Authorization: 'Bearer ' + ScriptApp.getOAuthToken(),
+        'X-Upload-Content-Type': q.mime,
+        'X-Upload-Content-Length': String(q.tamanho),
+        Origin: origem,
+      },
+      payload: JSON.stringify({ name: q.nome, parents: [pasta.getId()] }),
+      muteHttpExceptions: true,
+    });
+    if (r0.getResponseCode() !== 200) throw new Error('Falha ao iniciar envio: ' + r0.getContentText().slice(0, 200));
+    const h = r0.getAllHeaders();
+    return { sessao: h['Location'] || h['location'] };
   },
 
   // Devolve um arquivo (foto/áudio) para mostrar em outro aparelho

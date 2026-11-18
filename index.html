@@ -484,7 +484,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.4.0';
+const APP_VERSAO = '2.5.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1880,7 +1880,35 @@ async function comRetentativa(fn, vezes = 4) {
     catch (e) { if (t >= vezes || /administrador|login|Chave/i.test(e.message)) throw e; await new Promise(r => setTimeout(r, 2000 * t)); }
   }
 }
+// Envio direto ao Drive (sem passar os bytes pelo Apps Script). Se o navegador ou o servidor não
+// permitirem (servidor antigo, bloqueio de CORS), volta sozinho para o envio pelo servidor.
+let envioDireto = true;
+async function enviarDireto(blob, nome, destino, prog) {
+  const mime = blob.type || 'application/pdf';
+  const { sessao } = await comRetentativa(() => Sync.api('uploadSessao', { destino, nome, mime, tamanho:blob.size, origem:location.origin }));
+  if (!sessao) { const err = new Error('sem sessão de envio'); err.bloqueado = true; throw err; }
+  const N = 32 * 1024 * 1024;
+  for (let off = 0; off < blob.size; off += N) {
+    const fim = Math.min(blob.size, off + N);
+    let r;
+    try { r = await fetch(sessao, { method:'PUT', headers:{ 'Content-Range':`bytes ${off}-${fim - 1}/${blob.size}` }, body:blob.slice(off, fim) }); }
+    catch (e) { const err = new Error('direto-bloqueado'); err.bloqueado = true; throw err; }
+    if (r.status === 308) { if (prog) prog(fim / blob.size); continue; }
+    if (r.ok) { if (prog) prog(1); return (await r.json()).id; }
+    throw new Error('Falha no envio ao Drive (' + r.status + ')');
+  }
+}
 async function enviarArquivoDrive(blob, nome, destino, prog) {
+  if (envioDireto) {
+    try { return await enviarDireto(blob, nome, destino, prog); }
+    catch (e) {
+      if (e.bloqueado || /Ação desconhecida/.test(e.message)) envioDireto = false;   // servidor antigo ou navegador bloqueou: usa o caminho antigo daqui em diante
+      else if (/administrador|login|Chave/i.test(e.message)) throw e;
+    }
+  }
+  return enviarPeloServidor(blob, nome, destino, prog);
+}
+async function enviarPeloServidor(blob, nome, destino, prog) {
   const N = 8 * 1024 * 1024, mime = blob.type || 'application/pdf';
   let off = 0, sessao = null;
   while (off < blob.size) {
@@ -1974,7 +2002,7 @@ async function processarManual(arquivo, meta, prog) {
   const atualizar = () => prog(`Enviando: manual ${Math.round(pctCompleto * 100)}% · páginas ${feitos} de ${blocos.length} blocos`);
   atualizar();
   const tarefas = [{ completo:true }, ...blocos];
-  const res = await emParalelo(tarefas, 4, async t => {
+  const res = await emParalelo(tarefas, 6, async t => {
     if (t.completo) return enviarArquivoDrive(new Blob([buf], { type:'application/pdf' }), nomeBase + '.pdf', destino, f => { pctCompleto = f; atualizar(); });
     const out = await PDFDocument.create();
     const pgs = await out.copyPages(src, Array.from({ length: t.ate - t.de + 1 }, (_, i) => t.de - 1 + i));
