@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.9';
+const VERSAO_API = '3.0';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -688,13 +688,15 @@ function escolherManuais(mans, termos, max) {
     });
     Object.keys(achou).forEach(function (k) { const id = pos[k]; sc[id] = (sc[id] || 0) + pesoTermo(grupo); });
   });
-  const fora = mans.filter(function (m) { return !noGeral[m.id]; });
+  // fora do índice geral (novos): as mensagens do grupo e os mais recentes, no máximo 10 — o resto espera a otimização
+  const foraTodos = mans.filter(function (m) { return !noGeral[m.id]; });
+  const fora = foraTodos.slice().sort(function (a, b) { return (b.tipo === 'Mensagens do grupo') - (a.tipo === 'Mensagens do grupo') || (b.em || 0) - (a.em || 0); }).slice(0, 10);
   const dentro = mans.filter(function (m) { return noGeral[m.id] && sc[m.id]; }).map(function (m) {
     const meta = norm([m.marca, m.modelo, m.tipo, m.titulo, m.palavras].join(' '));
     const boost = termos.some(function (gr) { return gr.some(function (t) { return meta.indexOf(t) >= 0; }); }) ? 1.6 : 1;
     return { m: m, sc: sc[m.id] * boost };
   }).sort(function (a, b) { return b.sc - a.sc; }).slice(0, max).map(function (x) { return x.m; });
-  return { lista: dentro.concat(fora), faltam: fora.length };
+  return { lista: dentro.concat(fora), faltam: foraTodos.length };
 }
 
 const IGNORA_PECAS = { codigo: 1, cod: 1, numero: 1, peca: 1, pecas: 1, preco: 1, valor: 1, referencia: 1, ref: 1, part: 1, parts: 1, code: 1, number: 1 };
@@ -840,16 +842,24 @@ const ACOES_MANUAIS = {
     const ordens = fonte === 'manuais' ? [] : buscarOS(pergunta, termos, placasDe(pergunta).length ? 10 : (fonte === 'os' ? 10 : (temRefOS ? 8 : 4)));
     let mans = fonte === 'os' ? [] : listaManuais();
     if (q.marca) mans = mans.filter(function (m) { return m.marca === q.marca; });
-    if (mans.length) mans = escolherManuais(mans, termos, 18).lista;
+    const T = { inicio: Date.now() };
+    let faltamIndice = 0;
+    if (mans.length) { const e = escolherManuais(mans, termos, 14); mans = e.lista; faltamIndice = e.faltam; }
+    T.escolha = Date.now() - T.inicio;
+    // filtro rápido antes de normalizar a página (a normalização é a parte cara)
+    const variantes = []; termos.forEach(function (g) { g.forEach(function (t) { if (t.length >= 2) variantes.push(t); }); });
+    const temAlgo = function (txt) { const l = txt.toLowerCase(); for (let i = 0; i < variantes.length; i++) if (l.indexOf(variantes[i]) >= 0) return true; return /[^\x00-\x7f]/.test(txt) && variantes.some(function (v) { return norm(txt).indexOf(v) >= 0; }); };
     const cands = [], t0 = Date.now();
+    let lidos = 0;
     mans.forEach(function (m) {
-      if (Date.now() - t0 > 150000) return;            // segurança: nunca passar do tempo limite do Google
+      if (Date.now() - t0 > 40000) return;             // segurança: responde com o que já achou
       const idx = lerIndice(m); if (!idx) return;
+      lidos++;
       const meta = norm([m.marca, m.modelo, m.tipo, m.titulo, m.palavras].join(' '));
       const boost = termos.some(function (g) { return g.some(function (t) { return meta.indexOf(t) >= 0; }); }) ? 1.6 : 1;
       const msg = m.tipo === 'Mensagens do grupo';
       idx.paginas.forEach(function (txt, i) {
-        if (!txt) return;
+        if (!txt || !temAlgo(txt)) return;
         const dataTrecho = msg && idx.datas ? idx.datas[i] : (m.data ? Utilities.formatDate(new Date(m.data), 'America/Sao_Paulo', 'MM/yyyy') : '');
         const anoMs = msg && idx.tempos ? idx.tempos[i] : m.data;
         const recente = anoMs ? 1 + 0.25 * Math.max(0, Math.min(1, (anoMs - Date.UTC(2012, 0, 1)) / (Date.now() - Date.UTC(2012, 0, 1)))) : 1;
@@ -858,12 +868,13 @@ const ACOES_MANUAIS = {
       });
     });
     cands.sort(function (a, b) { return b.sc - a.sc; });
+    T.leitura = Date.now() - t0; T.lidos = lidos; T.faltamIndice = faltamIndice;
     const top = cands.slice(0, placasDe(pergunta).length ? 3 : 6);
     const pecas = (fonte === 'manuais' || placasDe(pergunta).length) ? { cabecalho: [], linhas: [] } : buscarPecas(termos, 25);
     if (!top.length && !pecas.linhas.length && !ordens.length) {
       const nada = fonte === 'os' ? 'Não encontrei nenhuma OS nem peça sobre isso. Tente pela placa (ex.: ABC1D23), pelo nº da OS ou pelo nome do cliente.'
         : 'Não encontrei nada sobre isso nos manuais cadastrados. Tente usar outras palavras, o código do alarme ou o modelo do equipamento.';
-      return { resposta: nada, fontes: [], ordens: [], pecas: { cabecalho: [], linhas: [] } };
+      return { resposta: nada, fontes: [], ordens: [], pecas: { cabecalho: [], linhas: [] }, tempos: T };
     }
     let ctx = '';
     top.forEach(function (c, i) {
@@ -871,7 +882,9 @@ const ACOES_MANUAIS = {
     });
     ordens.forEach(function (o, i) { ctx += '\n[OS' + (i + 1) + '] ORDEM DE SERVIÇO DA OFICINA\n' + textoOS(o) + '\n'; });
     if (pecas.linhas.length) ctx += '\n[TABELA DE PEÇAS] colunas: ' + pecas.cabecalho.join(' | ') + '\n' + pecas.linhas.map(function (l, i) { return 'P' + (i + 1) + ': ' + l.join(' | '); }).join('\n') + '\n';
+    const tIA = Date.now();
     const r = gemini([{ text: 'PERGUNTA DO TÉCNICO: ' + pergunta + '\n\nTRECHOS:' + ctx }], SISTEMA_IA);
+    T.ia = Date.now() - tIA; T.modelo = r._modelo; T.total = Date.now() - T.inicio;
     const vistos = {};
     const fontes = (r.fontes || []).map(function (n) { return parseInt(String(n).replace(/\D/g, ''), 10); })
       .filter(function (n) { return n >= 1 && n <= top.length && !vistos[n] && (vistos[n] = 1); })
@@ -886,7 +899,7 @@ const ACOES_MANUAIS = {
       .filter(function (n) { return n >= 1 && n <= ordens.length; })
       .map(function (n) { const o = ordens[n - 1]; return { os: o.os, placa: o.placa || '', cliente: o.cliente || '', aberta: o.aberta, status: o.status }; });
     return { resposta: String(r.resposta || ''), fontes: fontes, ordens: osUsadas, pecas: { cabecalho: pecas.cabecalho, linhas: pu.map(function (n) { return pecas.linhas[n - 1]; }) },
-             sugestoes: pu.length ? null : { cabecalho: pecas.cabecalho, linhas: pecas.linhas.slice(0, 8) } };
+             sugestoes: pu.length ? null : { cabecalho: pecas.cabecalho, linhas: pecas.linhas.slice(0, 8) }, tempos: T };
   },
 
   // Monta/atualiza o índice geral da busca aos poucos (cada chamada trabalha até ~4 min).

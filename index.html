@@ -484,7 +484,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.6.0';
+const APP_VERSAO = '2.6.1';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1745,7 +1745,12 @@ async function vManuais() {
         <div class="mq">${marcas.length > 1 && manFonte !== 'os' ? `<select class="catsel" id="mMarca"><option value="">Todas as marcas</option>${marcas.map(m => `<option>${esc(m)}</option>`).join('')}</select>` : ''}
           <button class="btn" data-man="perguntar" style="flex:1">✨ Pesquisar</button></div>
       </div>
+      ${adm ? '<div id="bRapida" class="aviso-ia" style="margin:10px 2px 0"></div>' : ''}
       <div id="mResp">${manResp ? respostaHtml(manResp) : ''}</div>`;
+    if (adm && !buscaRapidaRodando && !vManuais._conferido) {
+      vManuais._conferido = true;
+      Sync.api('buscaStatus', {}).then(st => { if (st.faltam) { const el = $('#bRapida'); if (el) el.textContent = `⚡ ${st.faltam} de ${st.total} manuais ainda fora da busca rápida: preparando...`; prepararBuscaRapida(); } }).catch(() => {});
+    } else if (adm && buscaRapidaRodando) { const el = $('#bRapida'); if (el) el.textContent = '⚡ Preparando a busca rápida...'; }
     const ta = $('#mPerg'); ta.onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) perguntarIA(); };
   } else if (manTab === 'bib') {
     const grupos = {};
@@ -1789,6 +1794,7 @@ function respostaHtml(r) {
     ${r.pecas && r.pecas.linhas && r.pecas.linhas.length ? `<h4>Tabela de peças</h4>${tabelaPecas(r.pecas)}` : ''}
     ${r.sugestoes && r.sugestoes.linhas && r.sugestoes.linhas.length ? `<h4>Peças possivelmente relacionadas (confira)</h4>${tabelaPecas(r.sugestoes)}` : ''}
     <p class="aviso-ia">Resposta gerada por IA a partir ${r.ordens && r.ordens.length ? 'das ordens de serviço' : 'dos manuais'}. Confira na fonte indicada antes de executar o serviço.</p>
+    ${r.diag ? `<p class="aviso-ia" style="margin-top:4px">${esc(r.diag)}</p>` : ''}
   </div>`;
 }
 async function perguntarIA() {
@@ -1796,9 +1802,13 @@ async function perguntarIA() {
   if (pergunta.length < 3) { toast('Escreva a pergunta.'); return; }
   const marca = $('#mMarca') ? $('#mMarca').value : '';
   manResp = { pergunta, carregando:true }; $('#mResp').innerHTML = respostaHtml(manResp);
+  const t0 = Date.now();
   try { const r = await Sync.api('perguntar', { pergunta, marca: manFonte === 'os' ? '' : marca, fonte: manFonte }); manResp = { ...r, pergunta }; }
   catch (e) { manResp = { pergunta, resposta:'⚠️ ' + e.message, fontes:[] }; }
+  const t = manResp.tempos, s = x => (x / 1000).toFixed(1).replace('.', ',') + ' s';
+  if (Sessao.admin()) manResp.diag = `⏱ ${s(Date.now() - t0)} no total` + (t ? ` · busca ${s((t.escolha || 0) + (t.leitura || 0))} (${t.lidos || 0} manuais lidos) · IA ${s(t.ia || 0)}${t.modelo ? ' (' + t.modelo + ')' : ''}${t.faltamIndice ? ` · ⚠️ ${t.faltamIndice} manuais fora da busca rápida: use ⚡ Otimizar busca na Biblioteca` : ''}` : '');
   if ($('#mResp')) $('#mResp').innerHTML = respostaHtml(manResp);
+  if (t && t.faltamIndice && Sessao.admin()) prepararBuscaRapida();
 }
 async function buscarPeca() {
   const busca = $('#pBusca').value.trim(); if (!busca) return;
@@ -2170,6 +2180,17 @@ async function otimizarBusca(prog) {
     if (prog) prog(r);
     if (!r.faltam) return r;
   }
+}
+// administrador: se há manuais fora da busca rápida, otimiza em segundo plano (uma vez por sessão)
+let buscaRapidaRodando = false;
+async function prepararBuscaRapida() {
+  if (buscaRapidaRodando || !Sessao.admin()) return;
+  buscaRapidaRodando = true;
+  toast('Preparando a busca rápida em segundo plano...');
+  try { await otimizarBusca(r => { const el = $('#bRapida'); if (el) el.textContent = `⚡ Preparando a busca rápida: ${r.total - r.faltam} de ${r.total} manuais`; }); toast('Busca rápida pronta ✓'); }
+  catch (e) { toast('Otimização da busca: ' + e.message); }
+  buscaRapidaRodando = false;
+  const el = $('#bRapida'); if (el) el.remove();
 }
 async function otimizarBuscaTela() {
   const bg = document.createElement('div'); bg.className = 'modal-bg';
