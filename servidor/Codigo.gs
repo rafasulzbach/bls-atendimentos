@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.8';
+const VERSAO_API = '2.9';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -751,17 +751,22 @@ function modelosAuto(key, leve) {
       if (r.getResponseCode() === 200) {
         const cands = (JSON.parse(r.getContentText()).models || [])
           .filter(function (m) { return (m.supportedGenerationMethods || []).indexOf('generateContent') >= 0; })
-          .map(function (m) { const n = String(m.name).replace('models/', ''); const x = n.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?$/); return x ? { n: n, v: parseFloat(x[1]), lite: !!x[2] } : null; })
+          .map(function (m) {
+            const n = String(m.name).replace('models/', '');
+            const x = n.match(/^gemini-(\d+(?:\.\d+)?)-flash(-lite)?(-preview[\w-]*)?$/);
+            return x ? { n: n, v: parseFloat(x[1]) - (x[3] ? 0.01 : 0), lite: !!x[2] } : null;   // versão estável na frente da "preview"
+          })
           .filter(function (c) { return c; })
           .sort(function (a, b) { return b.v - a.v; });
-        lista.flash = cands.filter(function (c) { return !c.lite; }).slice(0, 2).map(function (c) { return c.n; });
-        lista.lite = cands.filter(function (c) { return c.lite; }).slice(0, 2).map(function (c) { return c.n; });
+        lista.flash = cands.filter(function (c) { return !c.lite; }).slice(0, 3).map(function (c) { return c.n; });
+        lista.lite = cands.filter(function (c) { return c.lite; }).slice(0, 3).map(function (c) { return c.n; });
       }
     } catch (e) {}
     p.setProperty('MODELOS_CACHE', JSON.stringify(lista));
   }
-  const flash = lista.flash.concat(['gemini-flash-latest', 'gemini-2.5-flash']);
-  const lite = lista.lite.concat(['gemini-flash-lite-latest', 'gemini-2.5-flash-lite']);
+  // "-latest" sempre aponta para o modelo atual do Google: serve de reserva quando a lista falha
+  const flash = lista.flash.concat(['gemini-flash-latest']);
+  const lite = lista.lite.concat(['gemini-flash-lite-latest']);
   let ordem = leve ? lite.concat(flash) : flash.concat(lite);
   const ok = p.getProperty(leve ? 'MODELO_OK_LEVE' : 'MODELO_OK');
   if (ok) ordem = [ok].concat(ordem);
@@ -775,7 +780,8 @@ function gemini(parts, sistema, leve) {
   const body = { contents: [{ role: 'user', parts: parts }], generationConfig: { temperature: 0.2, responseMimeType: 'application/json' } };
   if (sistema) body.systemInstruction = { parts: [{ text: sistema }] };
   const payload = JSON.stringify(body);
-  let ultimo = '', limite = 0;
+  let ultimo = '', limite = 0, sumiu = 0;
+  const tentados = [];
   for (let mi = 0; mi < modelos.length; mi++) {
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelos[mi]) + ':generateContent';
     for (let tentativa = 0; tentativa < 2; tentativa++) {
@@ -795,15 +801,24 @@ function gemini(parts, sistema, leve) {
         catch (e) { const m = out.match(/\{[\s\S]*\}/); if (m) { const res = JSON.parse(m[0]); res._modelo = modelos[mi]; return res; } throw new Error('Resposta inválida da IA'); }
       }
       ultimo = 'Erro da IA (' + code + ', ' + modelos[mi] + '): ' + motivoErro(txt);
+      if (tentativa === 0 || code !== 503) tentados.push(modelos[mi] + ' ' + code);
       if (code === 400 && /API_KEY|API key/i.test(txt)) throw new Error(ultimo);   // chave inválida: não adianta trocar de modelo
       if (code === 401 || code === 403) throw new Error(ultimo);
-      if (code === 404 || code === 400) break;                                    // modelo indisponível: tenta o próximo
+      if (code === 404 || code === 400) {                                         // modelo aposentado/indisponível: tenta o próximo
+        sumiu++;
+        if (p.getProperty('MODELO_OK') === modelos[mi]) p.deleteProperty('MODELO_OK');
+        if (p.getProperty('MODELO_OK_LEVE') === modelos[mi]) p.deleteProperty('MODELO_OK_LEVE');
+        break;
+      }
       if (code === 429) { limite++; break; }                                      // limite deste modelo: tenta o próximo
       Utilities.sleep(1500 * (tentativa + 1));                                    // 500/503: sobrecarga passageira
     }
   }
-  if (limite === modelos.length) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.');
-  throw new Error('A IA do Google está sobrecarregada agora. Tente de novo em 1 ou 2 minutos. (' + ultimo + ')');
+  if (sumiu) p.deleteProperty('MODELOS_CACHE');            // algum modelo saiu do ar: refaz a lista na próxima pergunta
+  const det = ' [tentados: ' + tentados.join(', ') + ']';
+  if (limite && limite + sumiu === modelos.length) throw new Error('Limite gratuito da IA atingido no momento. Tente de novo em alguns minutos.' + det);
+  if (sumiu === modelos.length) throw new Error('Os modelos da IA mudaram no Google. Já atualizei a lista: tente de novo agora.' + det);
+  throw new Error('A IA do Google está sobrecarregada agora. Tente de novo em 1 ou 2 minutos.' + det);
 }
 
 const ACOES_MANUAIS = {
