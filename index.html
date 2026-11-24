@@ -484,7 +484,7 @@ textarea.inp{min-height:110px;resize:vertical}
 
 <script>
 'use strict';
-const APP_VERSAO = '2.5.0';
+const APP_VERSAO = '2.6.0';
 // Servidor da BLS embutido no app (assim ninguém precisa "conectar" o aparelho)
 const SERVIDOR_PADRAO = { url:'https://script.google.com/macros/s/AKfycby46rv01wyiv3vr4nSmSrCMVoUfuo-hRphqhiUz2_cyT_fJAO11-hLNcg39-i3zuUPc/exec', chave:'E6FA072E4F5B45B1' };
 /* =========================================================
@@ -1750,7 +1750,7 @@ async function vManuais() {
   } else if (manTab === 'bib') {
     const grupos = {};
     dados.manuais.filter(m => m.tipo !== 'Mensagens do grupo').forEach(m => (grupos[m.marca || 'Outros'] = grupos[m.marca || 'Outros'] || []).push(m));
-    b.innerHTML = `${adm ? `<div class="btnrow" style="margin-bottom:14px"><button class="btn" data-man="novo">＋ Adicionar manual</button><button class="btn sec" data-man="telegram">📥 Importar do Telegram</button></div>` : ''}
+    b.innerHTML = `${adm ? `<div class="btnrow" style="margin-bottom:14px"><button class="btn" data-man="novo">＋ Adicionar manual</button><button class="btn sec" data-man="telegram">📥 Importar do Telegram</button><button class="btn ghost" data-man="otimizar" title="Atualiza o índice que deixa a Pesquisa rápida">⚡ Otimizar busca</button></div>` : ''}
       <input class="search" id="mBusca" placeholder="Buscar manual por marca, modelo ou tipo..." style="width:100%;margin-bottom:14px">
       <div id="mLista">${Object.keys(grupos).sort().map(g => `<div class="mgrupo" data-g="${esc(normTxt(g))}"><h3>${esc(g)}</h3>${grupos[g].sort((a, b) => String(a.modelo).localeCompare(b.modelo)).map(m => `
         <div class="mitem" data-busca="${esc(normTxt([m.marca, m.modelo, m.tipo, m.titulo, m.palavras].join(' ')))}">
@@ -1950,6 +1950,7 @@ async function novoManual() {
     try {
       await processarManual(arquivo, { marca, modelo, tipo, ocr }, prog);
       bg.remove(); manCache = null; toast('Manual adicionado ✓'); render();
+      otimizarBusca().catch(() => {});
     } catch (e) { prog('⚠️ ' + e.message); rodando = false; bg.querySelector('#nmOk').disabled = false; bg.querySelector('#nmCanc').disabled = false; }
   };
 }
@@ -2154,8 +2155,31 @@ async function rodarImportacaoTg({ pdfs, uteis, origem, nomeGrupo, ocr }) {
     B(1);
   } catch (e) { erros++; S('⚠️ ' + e.message); }
   manCache = null;
+  if (novos && !tgParar) {
+    P('Otimizando a busca com os manuais novos...');
+    try { await otimizarBusca(r => S(`Busca: ${r.total - r.faltam} de ${r.total} manuais prontos`)); } catch (e) { S('⚠️ Otimização da busca: ' + e.message); }
+  }
   P(`${tgParar ? '⏸ Importação pausada.' : '✓ Importação concluída.'}<br><br>📄 ${novos} PDFs novos · ${pulados} repetidos ou já importados${erros ? ` · ${erros} com erro` : ''}<br>💬 Mensagens do grupo atualizadas.`);
   const bt = bg.querySelector('#tgStop'); bt.textContent = 'Fechar'; bt.className = 'btn'; bt.onclick = () => { bg.remove(); render(); };
+}
+
+// Índice geral da busca: deixa a Pesquisa rápida mesmo com centenas de manuais
+async function otimizarBusca(prog) {
+  for (let i = 0; i < 30; i++) {
+    const r = await comRetentativa(() => Sync.api('buscaOtimizar', {}), 2);
+    if (prog) prog(r);
+    if (!r.faltam) return r;
+  }
+}
+async function otimizarBuscaTela() {
+  const bg = document.createElement('div'); bg.className = 'modal-bg';
+  bg.innerHTML = `<div class="modal"><h3>Otimizando a busca</h3><p id="obTxt">Lendo os manuais... (pode levar alguns minutos)</p><div class="prog" style="margin-top:12px"><i id="obBar" style="width:3%;background:var(--pri)"></i></div></div>`;
+  document.body.appendChild(bg);
+  try {
+    await otimizarBusca(r => { $('#obTxt').textContent = `${r.total - r.faltam} de ${r.total} manuais prontos`; $('#obBar').style.width = Math.round(100 * (r.total - r.faltam) / Math.max(1, r.total)) + '%'; });
+    bg.remove(); toast('Busca otimizada ✓');
+  } catch (e) { bg.remove(); toast(e.message); }
+  render();
 }
 
 async function excluirManual(id) {
@@ -2959,7 +2983,7 @@ $('#view').addEventListener('click', async e => {
     return instalarAgora();
   }
   if ((el = t.closest('[data-mtab]'))) { manTab = el.dataset.mtab; return render(); }
-  if ((el = t.closest('[data-man]'))) { const a = el.dataset.man; if (a === 'perguntar') return perguntarIA(); if (a === 'novo') return novoManual(); if (a === 'telegram') return importarTelegram(); if (a === 'pecas') return importarPecas(); if (a === 'buscaPeca') return buscarPeca(); return; }
+  if ((el = t.closest('[data-man]'))) { const a = el.dataset.man; if (a === 'perguntar') return perguntarIA(); if (a === 'novo') return novoManual(); if (a === 'telegram') return importarTelegram(); if (a === 'otimizar') return otimizarBuscaTela(); if (a === 'pecas') return importarPecas(); if (a === 'buscaPeca') return buscarPeca(); return; }
   if ((el = t.closest('[data-pag]'))) { const [m, p] = el.dataset.pag.split('|'); return verPagina(m, +p); }
   if ((el = t.closest('[data-pagdl]'))) { const [m, p] = el.dataset.pagdl.split('|'); return baixarPagina(m, +p); }
   if ((el = t.closest('[data-mdel]'))) { return excluirManual(el.dataset.mdel); }

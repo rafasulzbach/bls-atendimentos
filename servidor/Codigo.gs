@@ -13,7 +13,7 @@
 
 const PASTA_ID = '1z5Vqz5UHFx0O3G6Fgc5k4tQ6mu5qrWyr';   // pasta do Drive da BLS
 const GOOGLE_CLIENT_ID = '1003853040855-he300vhna5upgis1774pagce9ltts9al.apps.googleusercontent.com';
-const VERSAO_API = '2.7';
+const VERSAO_API = '2.8';
 
 const CAB = ['ID', 'Nº', 'Status', 'OS', 'Placa', 'Técnico', 'Criado em', 'Finalizado em',
              'Em espera', 'Enviado', 'Concluído', 'Atualizado em', 'Pasta', 'Excluído',
@@ -153,7 +153,7 @@ function doGet() {
 }
 
 const PUBLICAS = { ping: 1, loginGoogle: 1, loginAparelho: 1, osPublicar: 1 };   // osPublicar confere a chave própria das OS
-const SO_ADMIN = { osConfig: 1, aparelhoCriar: 1, usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, manualExcluirOrigem: 1, pecasImportar: 1 };
+const SO_ADMIN = { buscaOtimizar: 1, buscaStatus: 1, osConfig: 1, aparelhoCriar: 1, usuarios: 1, usuarioAcao: 1, salvarPermissoes: 1, iaConfig: 1, iaTestar: 1, manualIniciar: 1, manualOcr: 1, manualConcluir: 1, manualExcluir: 1, manualExcluirOrigem: 1, pecasImportar: 1 };
 
 function doPost(e) {
   let r;
@@ -643,6 +643,60 @@ function lerIndice(m) {
   try { return JSON.parse(Utilities.ungzip(DriveApp.getFileById(m.indice).getBlob().setContentType('application/x-gzip')).getDataAsString()); }
   catch (e) { return null; }
 }
+/* ---------- Índice geral da busca ----------
+   Com centenas de manuais, abrir o índice de cada um a cada pergunta passa do tempo limite do Google.
+   O índice geral guarda, para cada palavra, em quais manuais ela aparece (um arquivo só, compactado).
+   A pergunta abre esse arquivo, escolhe os manuais mais promissores e lê só as páginas deles.
+   Manuais novos, ainda fora do índice geral, entram sempre como candidatos até a próxima "otimização". */
+function palavrasDoTexto(txt, set) {
+  norm(txt).split(/[^a-z0-9\-\.\/]+/).forEach(function (t) {
+    t = t.replace(/^[\-\.\/]+|[\-\.\/]+$/g, '');
+    if (!t || t.length > 32 || (t.length < 2)) return;
+    set[t] = 1;
+    if (/[\-\.\/]/.test(t)) t.split(/[\-\.\/]+/).forEach(function (x) { if (x.length >= 2) set[x] = 1; });
+  });
+}
+function lerIndiceGeral() {
+  const id = props().getProperty('INDICE_GERAL');
+  if (!id) return null;
+  try { return JSON.parse(Utilities.ungzip(DriveApp.getFileById(id).getBlob().setContentType('application/x-gzip')).getDataAsString()); }
+  catch (e) { return null; }
+}
+function salvarIndiceGeral(g) {
+  const p = props();
+  const blob = Utilities.gzip(Utilities.newBlob(JSON.stringify(g), 'application/json'), 'indice-geral.json.gz');
+  const id = p.getProperty('INDICE_GERAL');
+  if (id) { try { DriveApp.getFileById(id).setTrashed(true); } catch (e) {} }
+  p.setProperty('INDICE_GERAL', pastaManuais().createFile(blob).getId());
+}
+// posição da primeira chave >= t (chaves em ordem)
+function primeiraChave(keys, t) { let lo = 0, hi = keys.length; while (lo < hi) { const m = (lo + hi) >> 1; if (keys[m] < t) lo = m + 1; else hi = m; } return lo; }
+// manuais (índices em g.ids) que têm alguma palavra começando com t
+function manuaisComPrefixo(g, t, out) {
+  for (let i = primeiraChave(g.keys, t); i < g.keys.length && g.keys[i].lastIndexOf(t, 0) === 0; i++) g.post[i].forEach(function (k) { out[k] = 1; });
+}
+function escolherManuais(mans, termos, max) {
+  const g = lerIndiceGeral();
+  const noGeral = {}, pos = {};
+  if (g) g.ids.forEach(function (id, k) { noGeral[id] = 1; pos[k] = id; });
+  const sc = {};
+  if (g) termos.forEach(function (grupo) {
+    const achou = {};
+    grupo.forEach(function (t) {
+      if (/\d/.test(t)) { const i = primeiraChave(g.keys, t); if (g.keys[i] === t) g.post[i].forEach(function (k) { achou[k] = 1; }); }   // números e códigos: palavra exata
+      else manuaisComPrefixo(g, t, achou);
+    });
+    Object.keys(achou).forEach(function (k) { const id = pos[k]; sc[id] = (sc[id] || 0) + pesoTermo(grupo); });
+  });
+  const fora = mans.filter(function (m) { return !noGeral[m.id]; });
+  const dentro = mans.filter(function (m) { return noGeral[m.id] && sc[m.id]; }).map(function (m) {
+    const meta = norm([m.marca, m.modelo, m.tipo, m.titulo, m.palavras].join(' '));
+    const boost = termos.some(function (gr) { return gr.some(function (t) { return meta.indexOf(t) >= 0; }); }) ? 1.6 : 1;
+    return { m: m, sc: sc[m.id] * boost };
+  }).sort(function (a, b) { return b.sc - a.sc; }).slice(0, max).map(function (x) { return x.m; });
+  return { lista: dentro.concat(fora), faltam: fora.length };
+}
+
 const IGNORA_PECAS = { codigo: 1, cod: 1, numero: 1, peca: 1, pecas: 1, preco: 1, valor: 1, referencia: 1, ref: 1, part: 1, parts: 1, code: 1, number: 1 };
 function buscarPecas(termos, max) {
   const sh = abaPecas();
@@ -771,8 +825,10 @@ const ACOES_MANUAIS = {
     const ordens = fonte === 'manuais' ? [] : buscarOS(pergunta, termos, placasDe(pergunta).length ? 10 : (fonte === 'os' ? 10 : (temRefOS ? 8 : 4)));
     let mans = fonte === 'os' ? [] : listaManuais();
     if (q.marca) mans = mans.filter(function (m) { return m.marca === q.marca; });
-    const cands = [];
+    if (mans.length) mans = escolherManuais(mans, termos, 18).lista;
+    const cands = [], t0 = Date.now();
     mans.forEach(function (m) {
+      if (Date.now() - t0 > 150000) return;            // segurança: nunca passar do tempo limite do Google
       const idx = lerIndice(m); if (!idx) return;
       const meta = norm([m.marca, m.modelo, m.tipo, m.titulo, m.palavras].join(' '));
       const boost = termos.some(function (g) { return g.some(function (t) { return meta.indexOf(t) >= 0; }); }) ? 1.6 : 1;
@@ -816,6 +872,40 @@ const ACOES_MANUAIS = {
       .map(function (n) { const o = ordens[n - 1]; return { os: o.os, placa: o.placa || '', cliente: o.cliente || '', aberta: o.aberta, status: o.status }; });
     return { resposta: String(r.resposta || ''), fontes: fontes, ordens: osUsadas, pecas: { cabecalho: pecas.cabecalho, linhas: pu.map(function (n) { return pecas.linhas[n - 1]; }) },
              sugestoes: pu.length ? null : { cabecalho: pecas.cabecalho, linhas: pecas.linhas.slice(0, 8) } };
+  },
+
+  // Monta/atualiza o índice geral da busca aos poucos (cada chamada trabalha até ~4 min).
+  buscaOtimizar() {
+    const ini = Date.now();
+    const mans = listaManuais();
+    const existe = {}; mans.forEach(function (m) { existe[m.id] = 1; });
+    let g = lerIndiceGeral() || { v: 1, ids: [], keys: [], post: [] };
+    // reconstrói o mapa palavra → manuais, tirando os manuais que foram excluídos
+    const mapa = {}, ids = [], novoK = {};
+    g.ids.forEach(function (id, k) { if (existe[id]) { novoK[k] = ids.length; ids.push(id); } });
+    g.keys.forEach(function (t, i) { const l = []; g.post[i].forEach(function (k) { if (novoK[k] !== undefined) l.push(novoK[k]); }); if (l.length) mapa[t] = l; });
+    const ja = {}; ids.forEach(function (id) { ja[id] = 1; });
+    const faltando = mans.filter(function (m) { return !ja[m.id]; });
+    let feitos = 0;
+    for (let i = 0; i < faltando.length && Date.now() - ini < 240000; i++) {
+      const m = faltando[i];
+      const idx = lerIndice(m);
+      const k = ids.length; ids.push(m.id); feitos++;
+      if (!idx) continue;
+      const set = {};
+      idx.paginas.forEach(function (txt) { if (txt) palavrasDoTexto(txt, set); });
+      palavrasDoTexto([m.marca, m.modelo, m.tipo, m.titulo, m.palavras].join(' '), set);
+      Object.keys(set).forEach(function (t) { (mapa[t] || (mapa[t] = [])).push(k); });
+    }
+    const keys = Object.keys(mapa).sort();
+    salvarIndiceGeral({ v: 1, ids: ids, keys: keys, post: keys.map(function (t) { return mapa[t]; }) });
+    return { feitos: feitos, faltam: faltando.length - feitos, total: mans.length };
+  },
+  buscaStatus() {
+    const mans = listaManuais();
+    const g = lerIndiceGeral();
+    const ja = {}; if (g) g.ids.forEach(function (id) { ja[id] = 1; });
+    return { total: mans.length, faltam: mans.filter(function (m) { return !ja[m.id]; }).length };
   },
 
   pecasBuscar(q) {
